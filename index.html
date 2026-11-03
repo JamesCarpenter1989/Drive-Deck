@@ -19,10 +19,13 @@
   color-scheme: dark;
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font);-webkit-tap-highlight-color:transparent}
 body{padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));padding-block:max(10px,env(safe-area-inset-top,0px)) 10px}
 .app{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:8px}
-button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+select{outline:none;-webkit-appearance:none;appearance:none}
+select:focus{border-color:var(--line)}
 
 /* Swipe loop */
 .carousel{position:relative;height:var(--h);overflow:hidden;touch-action:pan-y;user-select:none}
@@ -31,12 +34,12 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid 
 
 /* Page 1: player */
 .p1{display:flex;flex-direction:column;gap:8px}
-.now{height:76px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:7px;display:flex;gap:10px;align-items:center}
-.art{width:60px;height:60px;flex:none;border-radius:8px;background:var(--line);object-fit:cover}
+.now{height:calc(var(--h) - 132px);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:7px;display:flex;gap:10px;align-items:center}
+.art{width:calc(var(--h) - 148px);height:calc(var(--h) - 148px);flex:none;border-radius:8px;background:var(--line);object-fit:cover}
 .art[src=""]{visibility:hidden}
 .text{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
 .text div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#title{font-size:16px;font-weight:650;line-height:1.25}
+#title{font-size:17px;font-weight:650;line-height:1.25}
 #channel{font-size:13px;color:var(--soft)}
 #meta{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
 .controls{display:grid;grid-template-columns:1fr 1.3fr 1fr;gap:8px}
@@ -44,18 +47,14 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid 
 .controls button:active{transform:scale(.97)}
 #play{background:var(--accent);border-color:var(--accent);color:#141414}
 .controls svg{width:34px;height:34px;fill:currentColor}
-#pick{height:46px}
+#pick{height:46px;padding-right:40px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a979d' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:20px}
 
 /* Page 2: video and settings button, same height as page 1 */
 .p2{display:flex;gap:10px}
-#player{width:var(--h);height:var(--h);flex:none;border-radius:10px;overflow:hidden;background:#000}
+#player{width:min(var(--h), calc(100% - 90px));height:var(--h);flex:none;border-radius:10px;overflow:hidden;background:#000}
 .gear{flex:1;height:var(--h);border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--accent);display:grid;place-items:center;cursor:pointer}
 .gear svg{width:44px;height:44px}
 
-.dots{display:flex;justify-content:center;gap:4px}
-.dots button{width:28px;height:18px;border:0;background:none;padding:0;display:grid;place-items:center;cursor:pointer}
-.dots span{display:block;width:6px;height:6px;border-radius:3px;background:#5b666b;transition:width .2s}
-.dots button[aria-current="true"] span{width:18px;background:var(--accent)}
 
 /* Settings page */
 .settings{display:flex;flex-direction:column;gap:14px}
@@ -107,10 +106,6 @@ select,input{flex:1;min-width:0;width:100%;height:48px;border-radius:12px;border
         </button>
       </section>
     </div>
-    <nav class="dots" aria-label="Pages">
-      <button data-go="0" aria-label="Player page" aria-current="true"><span></span></button>
-      <button data-go="1" aria-label="Video page" aria-current="false"><span></span></button>
-    </nav>
   </div>
 
   <section class="settings" id="settingsView" hidden>
@@ -118,6 +113,7 @@ select,input{flex:1;min-width:0;width:100%;height:48px;border-radius:12px;border
       <button class="back" id="closeSettings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>Back</button>
       <h1>Settings</h1>
     </div>
+    <div id="status"></div>
     <div class="group">
       <h2>Playlists</h2>
       <input id="newName" placeholder="Name, e.g. Morning drive" autocomplete="off">
@@ -137,7 +133,6 @@ select,input{flex:1;min-width:0;width:100%;height:48px;border-radius:12px;border
     </div>
   </section>
 
-  <div id="status"></div>
 </main>
 
 <script>
@@ -147,7 +142,12 @@ let loadToken = 0, artId = null, playlists = [], player, ready = false, playing 
 
 function load(){ try{ playlists = JSON.parse(localStorage.getItem(KEY)) || []; }catch(e){ playlists = []; } }
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(playlists)); }catch(e){} }
-function status(msg, err){ $('status').textContent = msg || ''; $('status').className = err ? 'err' : ''; }
+let statusUntil = 0;
+function status(msg, err){
+  $('status').textContent = msg || ''; $('status').className = err ? 'err' : '';
+  // On the player page, show messages in the info line so nothing pushes below the window
+  if (msg && $('settingsView').hidden){ $('meta').textContent = msg; statusUntil = Date.now() + 4000; }
+}
 
 function parseLink(url){
   url = url.trim();
@@ -191,6 +191,7 @@ $('add').onclick = () => {
 };
 
 $('pick').onchange = () => {
+  $('pick').blur();
   currentId = null;
   if (!ready) return;
   keepAwake(); startSilent();
@@ -312,7 +313,7 @@ function updateNow(){
   let meta = (p ? p.name : '') + (list && list.length ? ' · ' + (idx + 1) + ' of ' + list.length : '');
   const ci = chapterIndex();
   if (useChapters() && ci >= 0) meta = 'Ch ' + (ci + 1) + '/' + chapters.length + ' · ' + chapters[ci].name;
-  $('meta').textContent = meta;
+  if (Date.now() > statusUntil) $('meta').textContent = meta;
 }
 setInterval(updateNow, 1000);
 
@@ -416,8 +417,16 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catc
 const pages = [$('page1'), $('page2')];
 let page = 0;
 function place(i, x, anim){ pages[i].classList.toggle('anim', !!anim); pages[i].style.transform = 'translateX(' + x + 'px)'; }
-function layout(){ const w = $('carousel').clientWidth + 16; place(page, 0); place(1 - page, w); }
-function showDots(){ document.querySelectorAll('.dots button').forEach(b => b.setAttribute('aria-current', String(+b.dataset.go === page))); }
+function fit(){
+  const c = $('carousel');
+  if (!c.offsetParent) return;
+  const top = c.getBoundingClientRect().top + window.scrollY;
+  const bottom = parseFloat(getComputedStyle(document.body).paddingBottom) || 10;
+  const h = Math.max(200, Math.floor(window.innerHeight - top - bottom));
+  document.documentElement.style.setProperty('--h', h + 'px');
+}
+function layout(){ fit(); const w = $('carousel').clientWidth + 16; place(page, 0); place(1 - page, w); }
+function showDots(){}
 function go(dir){ // dir -1: content moves left (swipe right-to-left), +1: moves right
   const w = $('carousel').clientWidth + 16, other = 1 - page;
   place(other, -dir * w); // start the incoming page on the side it enters from
@@ -455,8 +464,8 @@ function go(dir){ // dir -1: content moves left (swipe right-to-left), +1: moves
     }
     drag = track = false;
   });
-  document.querySelectorAll('.dots button').forEach(b => b.onclick = () => { if (+b.dataset.go !== page) go(-1); });
   window.addEventListener('resize', layout);
+  if (window.visualViewport) visualViewport.addEventListener('resize', layout);
   layout();
 })();
 
