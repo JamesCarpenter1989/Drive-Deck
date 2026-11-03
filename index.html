@@ -83,8 +83,8 @@ select:focus{border-color:var(--line)}
 
 /* Page 2: video and settings button, same height as page 1 */
 .p2{display:flex;gap:10px}
-/* Invisible layer over the top half of the video so swipes there switch pages; Skip ad sits in the bottom half */
-.shield{position:absolute;left:0;top:0;width:min(var(--h), calc(100% - 90px));height:calc(var(--h) / 2);z-index:2}
+/* Invisible layer over the top 65% of the video so swipes there switch pages; Skip ad sits in the bottom half */
+.shield{position:absolute;left:0;top:0;width:min(var(--h), calc(100% - 90px));height:calc(var(--h) * 0.65);z-index:2}
 #player{width:min(var(--h), calc(100% - 90px));height:var(--h);flex:none;border-radius:10px;overflow:hidden;background:#000}
 .gear{flex:1;height:var(--h);border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--soft);display:grid;place-items:center;cursor:pointer}
 .gear svg{width:44px;height:44px}
@@ -92,9 +92,9 @@ select:focus{border-color:var(--line)}
 
 /* Settings page */
 /* Settings opens as a drawer that slides down under the video and gear */
-.drawer{display:grid;grid-template-rows:0fr;opacity:0;transform:translateY(-12px);transition:grid-template-rows .38s cubic-bezier(.2,.8,.2,1),opacity .28s ease,transform .38s cubic-bezier(.2,.8,.2,1)}
+.drawer{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:0fr;min-width:0;opacity:0;transform:translateY(-12px);transition:grid-template-rows .38s cubic-bezier(.2,.8,.2,1),opacity .28s ease,transform .38s cubic-bezier(.2,.8,.2,1)}
 .drawer.open{grid-template-rows:1fr;opacity:1;transform:none}
-.drawer > .settings{min-height:0;overflow:hidden}
+.drawer > .settings{min-height:0;min-width:0;overflow:hidden}
 .drawer.open > .settings{overflow:visible;padding-top:6px}
 .gear svg{transition:transform .38s cubic-bezier(.2,.8,.2,1)}
 .gear.open svg{transform:rotate(90deg)}
