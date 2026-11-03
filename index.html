@@ -109,7 +109,7 @@ summary{cursor:pointer;padding:12px 0;font-weight:600}
 <script>
 const $ = id => document.getElementById(id);
 const KEY = 'drivedeck.playlists';
-let artId = null, playlists = [], player, ready = false, playing = false, shuffle = false, currentId = null;
+let loadToken = 0, artId = null, playlists = [], player, ready = false, playing = false, shuffle = false, currentId = null;
 
 function load(){ try{ playlists = JSON.parse(localStorage.getItem(KEY)) || []; }catch(e){ playlists = []; } }
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(playlists)); }catch(e){} }
@@ -157,7 +157,12 @@ $('add').onclick = () => {
   status('Added ' + name + '. Tap play to start.');
 };
 
-$('pick').onchange = () => { currentId = null; if (playing) startSelected(); };
+$('pick').onchange = () => {
+  currentId = null;
+  if (!ready) return;
+  keepAwake(); startSilent();
+  startSelected();
+};
 
 /* Chapters: read timestamps from the video description via the YouTube Data API */
 let apiKey = '', chaptersOn = true, chapters = [], chapVideo = null;
@@ -285,13 +290,31 @@ setInterval(updateNow, 1000);
 function startSelected(){
   const p = playlists[$('pick').value];
   if (!p){ status('Add a playlist first.', true); $('manageBox').open = true; return; }
+  const token = ++loadToken;
   currentId = p.id;
-  if (p.type === 'list'){
-    player.loadPlaylist({ list: p.id, listType: 'playlist', index: 0 });
-    setTimeout(() => { player.setShuffle(shuffle); player.setLoop(true); }, 800);
-  } else {
-    player.loadVideoById(p.id);
-  }
+  chapters = []; chapVideo = null; artId = null;
+  $('title').textContent = 'Loading ' + p.name + '…';
+  $('art').src = '';
+  try{ player.stopVideo(); }catch(e){}
+  // Short pause after stopping, because the player can ignore a load sent while it is busy
+  setTimeout(() => {
+    if (token !== loadToken) return;
+    if (p.type === 'list'){
+      player.loadPlaylist({ list: p.id, listType: 'playlist', index: 0 });
+      setTimeout(() => { if (token === loadToken){ player.setShuffle(shuffle); player.setLoop(true); } }, 800);
+      // Check it actually switched; if not, try once more
+      setTimeout(() => {
+        if (token !== loadToken) return;
+        const got = player.getPlaylistId ? player.getPlaylistId() : null;
+        if (got && got !== p.id){
+          player.stopVideo();
+          setTimeout(() => token === loadToken && player.loadPlaylist({ list: p.id, listType: 'playlist', index: 0 }), 300);
+        }
+      }, 2500);
+    } else {
+      player.loadVideoById(p.id);
+    }
+  }, 250);
 }
 
 function togglePlay(){
