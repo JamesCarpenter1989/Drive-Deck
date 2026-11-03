@@ -155,10 +155,11 @@ let loadToken = 0, artId = null, playlists = [], player, ready = false, playing 
 function load(){ try{ playlists = JSON.parse(localStorage.getItem(KEY)) || []; }catch(e){ playlists = []; } }
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(playlists)); }catch(e){} }
 let statusUntil = 0, lastShown = '';
-function status(msg, err){
+function status(msg, err, ms){
+  if (!msg) statusUntil = 0;
   $('status').textContent = msg || ''; $('status').className = err ? 'err' : '';
   // On the player page, show messages in the info line so nothing pushes below the window
-  if (msg && $('settingsView').hidden){ $('meta').textContent = msg; statusUntil = Date.now() + 4000; }
+  if (msg && $('settingsView').hidden){ $('meta').textContent = msg; statusUntil = Date.now() + (ms || 4000); }
 }
 
 function parseLink(url){
@@ -288,7 +289,7 @@ window.onYouTubeIframeAPIReady = () => {
     width: 200, height: 200,
     playerVars: { playsinline: 1, rel: 0, origin: location.origin },
     events: {
-      onReady: () => { ready = true; status(''); },
+      onReady: () => { ready = true; status(''); resume(); },
       onStateChange: onState,
       onError: e => {
         const msg = { 2:'Bad link', 5:'Player error', 100:'Video removed or private', 101:'Owner blocks embedding', 150:'Owner blocks embedding' }[e.data] || 'Playback error';
@@ -433,7 +434,7 @@ function startSilent(){
   w(36,'data'); v.setUint32(40,n,true); for (let i=0;i<n;i++) v.setUint8(44+i,128);
   silent = new Audio(URL.createObjectURL(new Blob([buf], {type:'audio/wav'})));
   silent.loop = true; silent.volume = 0.01;
-  silent.play().catch(() => {});
+  silent.play().catch(() => { silent = null; }); // blocked until a tap; the next tap tries again
   if ('mediaSession' in navigator){
     const ms = navigator.mediaSession;
     ms.setActionHandler('play', () => { player.playVideo(); silent.play().catch(()=>{}); });
@@ -514,6 +515,49 @@ function go(dir){ // dir -1: content moves left (swipe right-to-left), +1: moves
 /* Settings page */
 $('openSettings').onclick = () => { $('mainView').hidden = true; $('settingsView').hidden = false; window.scrollTo(0, 0); };
 $('closeSettings').onclick = () => { $('settingsView').hidden = true; $('mainView').hidden = false; layout(); };
+
+/* Resume: remember where playback was and carry on from there next time */
+const RKEY = 'drivedeck.resume';
+function saveSpot(){
+  if (!ready || !currentId || !player.getCurrentTime) return;
+  const d = player.getVideoData ? player.getVideoData() : {};
+  if (!d || !d.video_id) return;
+  const spot = {
+    id: currentId,
+    index: player.getPlaylistIndex ? Math.max(0, player.getPlaylistIndex()) : 0,
+    video: d.video_id,
+    time: player.getCurrentTime() || 0,
+    duration: player.getDuration ? player.getDuration() || 0 : 0
+  };
+  try{ localStorage.setItem(RKEY, JSON.stringify(spot)); }catch(e){}
+}
+setInterval(() => { if (playing) saveSpot(); }, 3000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveSpot(); });
+window.addEventListener('pagehide', saveSpot);
+
+function resume(){
+  let spot = null;
+  try{ spot = JSON.parse(localStorage.getItem(RKEY)); }catch(e){}
+  if (!spot) return;
+  const i = playlists.findIndex(p => p.id === spot.id);
+  if (i < 0) return; // that playlist was removed
+  const p = playlists[i];
+  $('pick').value = i;
+  currentId = p.id;
+  const nearEnd = spot.duration && spot.time > spot.duration - 5;
+  let index = spot.index, start = Math.floor(spot.time);
+  if (nearEnd){ index += 1; start = 0; }
+  status('Resuming…');
+  keepAwake(); startSilent();
+  if (p.type === 'list'){
+    player.loadPlaylist({ list: p.id, listType: 'playlist', index, startSeconds: start });
+    setTimeout(() => player.setLoop(true), 800);
+  } else {
+    player.loadVideoById({ videoId: p.id, startSeconds: nearEnd ? 0 : start });
+  }
+  // If Chrome blocked autoplay, everything is loaded at the right spot and one tap starts it
+  setTimeout(() => { if (!playing) status('Tap play to resume', false, 600000); }, 3000);
+}
 
 load(); render();
 if (!playlists.length){ $('mainView').hidden = true; $('settingsView').hidden = false; }
