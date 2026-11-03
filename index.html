@@ -83,8 +83,14 @@ select:focus{border-color:var(--line)}
 
 /* Page 2: video and settings button, same height as page 1 */
 .p2{display:flex;gap:10px}
-/* Invisible layer over the top 65% of the video so swipes there switch pages; Skip ad sits in the bottom half */
-.shield{position:absolute;left:0;top:0;width:min(var(--h), calc(100% - 90px));height:calc(var(--h) * 0.65);z-index:2}
+/* Invisible layer over the whole video except a window round the Skip ad button (5px margin), so swipes work almost everywhere.
+   Window measured from the skip button: 22%-95% across, 73%-89% down the player. */
+.shield{position:absolute;left:0;top:0;width:min(var(--h), calc(100% - 90px));height:var(--h);z-index:2;pointer-events:none;--sx1:22%;--sx2:95%;--sy1:73%;--sy2:89%}
+.shield i{position:absolute;pointer-events:auto}
+.s-top{left:0;right:0;top:0;height:calc(var(--sy1) - 5px)}
+.s-bot{left:0;right:0;bottom:0;height:calc(100% - var(--sy2) - 5px)}
+.s-left{left:0;top:calc(var(--sy1) - 5px);bottom:calc(100% - var(--sy2) - 5px);width:calc(var(--sx1) - 5px)}
+.s-right{right:0;top:calc(var(--sy1) - 5px);bottom:calc(100% - var(--sy2) - 5px);width:calc(100% - var(--sx2) - 5px)}
 #player{width:min(var(--h), calc(100% - 90px));height:var(--h);flex:none;border-radius:10px;overflow:hidden;background:#000}
 .gear{flex:1;height:var(--h);border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--soft);display:grid;place-items:center;cursor:pointer}
 .gear svg{width:44px;height:44px}
@@ -184,7 +190,7 @@ select,input{flex:1;min-width:0;width:100%;height:48px;border-radius:12px;border
       </section>
       <section class="page p2" id="page2" aria-label="Video">
         <div id="player"></div>
-        <div class="shield" aria-hidden="true"></div>
+        <div class="shield" aria-hidden="true"><i class="s-top"></i><i class="s-bot"></i><i class="s-left"></i><i class="s-right"></i></div>
         <button class="gear" id="openSettings" aria-label="Settings">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33 1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82 1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         </button>
