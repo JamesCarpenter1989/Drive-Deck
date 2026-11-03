@@ -87,6 +87,18 @@ summary{cursor:pointer;padding:12px 0;font-weight:600}
       <p class="hint">Playlists must be Public or Unlisted. Private playlists, and videos whose owners block embedding, will not play here.</p>
     </div>
   </details>
+
+  <details id="settingsBox">
+    <summary>Chapters</summary>
+    <div class="manage">
+      <input id="apiKey" placeholder="Paste YouTube Data API key" autocomplete="off" spellcheck="false">
+      <div class="row">
+        <button class="small" id="saveKey">Save key</button>
+        <button class="small" id="chapToggle" aria-pressed="true">Skip by chapter: On</button>
+      </div>
+      <p class="hint" id="keyHint">With a key saved, next and previous jump between chapters when a video has them. After the last chapter, next goes to the next video. The key is stored only on this phone.</p>
+    </div>
+  </details>
 </main>
 
 <section class="parking">
@@ -147,6 +159,72 @@ $('add').onclick = () => {
 
 $('pick').onchange = () => { currentId = null; if (playing) startSelected(); };
 
+/* Chapters: read timestamps from the video description via the YouTube Data API */
+let apiKey = '', chaptersOn = true, chapters = [], chapVideo = null;
+const chapCache = {};
+try{ apiKey = localStorage.getItem('drivedeck.apikey') || ''; chaptersOn = localStorage.getItem('drivedeck.chapters') !== 'off'; }catch(e){}
+$('apiKey').value = apiKey;
+function showChapToggle(){
+  $('chapToggle').textContent = 'Skip by chapter: ' + (chaptersOn ? 'On' : 'Off');
+  $('chapToggle').classList.toggle('on', chaptersOn);
+  $('chapToggle').setAttribute('aria-pressed', chaptersOn);
+}
+showChapToggle();
+$('saveKey').onclick = async () => {
+  apiKey = $('apiKey').value.trim();
+  try{ localStorage.setItem('drivedeck.apikey', apiKey); }catch(e){}
+  Object.keys(chapCache).forEach(k => delete chapCache[k]);
+  chapVideo = null; chapters = [];
+  if (!apiKey){ status('Key removed. Buttons will skip whole videos.'); return; }
+  const test = await fetchChapters('dQw4w9WgXcQ', true);
+  status(test === 'error' ? 'That key did not work. Check it is copied in full and YouTube Data API v3 is enabled.' : 'Key saved and working.', test === 'error');
+};
+$('chapToggle').onclick = () => {
+  chaptersOn = !chaptersOn;
+  try{ localStorage.setItem('drivedeck.chapters', chaptersOn ? 'on' : 'off'); }catch(e){}
+  showChapToggle();
+};
+
+function toSec(t){ return t.split(':').reduce((a,b) => a*60 + Number(b), 0); }
+function parseChapters(desc){
+  const out = [];
+  desc.split(/\r?\n/).forEach(line => {
+    const m = line.match(/(?:^|[\s\[(])((?:\d{1,2}:)?\d{1,2}:\d{2})(?=$|[\s\])\-–—:|.,])/);
+    if (!m) return;
+    const t = toSec(m[1]);
+    const name = line.replace(m[0], ' ').replace(/^[\s\-–—:|.)\]]+|[\s\-–—:|(\[]+$/g, '').trim() || 'Chapter';
+    if (!out.length || t > out[out.length - 1].t) out.push({ t, name });
+  });
+  // YouTube's own rule: first chapter at 0:00 and at least three chapters
+  return out.length >= 3 && out[0].t === 0 ? out : [];
+}
+
+async function fetchChapters(id, testOnly){
+  if (!apiKey) return [];
+  if (chapCache[id] && !testOnly) return chapCache[id];
+  try{
+    const r = await fetch('https://www.googleapis.com/youtube/v3/videos?part=snippet&id=' + encodeURIComponent(id) + '&key=' + encodeURIComponent(apiKey));
+    if (!r.ok) return 'error';
+    const j = await r.json();
+    const desc = j.items && j.items[0] ? j.items[0].snippet.description : '';
+    return (chapCache[id] = parseChapters(desc || ''));
+  }catch(e){ return 'error'; }
+}
+
+async function loadChapters(id){
+  if (id === chapVideo) return;
+  chapVideo = id; chapters = [];
+  const c = await fetchChapters(id);
+  if (id === chapVideo) chapters = Array.isArray(c) ? c : [];
+}
+function chapterIndex(){
+  if (!chapters.length || !ready) return -1;
+  const now = player.getCurrentTime();
+  let i = 0; while (i + 1 < chapters.length && chapters[i + 1].t <= now + 0.5) i++;
+  return i;
+}
+function useChapters(){ return chaptersOn && chapters.length > 0; }
+
 $('shuffle').onclick = () => {
   shuffle = !shuffle;
   $('shuffle').classList.toggle('on', shuffle);
@@ -193,12 +271,16 @@ function updateNow(){
     $('art').src = 'https://i.ytimg.com/vi/' + artId + '/mqdefault.jpg';
     syncSession();
   }
+  if (d && d.video_id) loadChapters(d.video_id);
   const list = player.getPlaylist && player.getPlaylist();
   const idx = player.getPlaylistIndex && player.getPlaylistIndex();
   const p = playlists[$('pick').value];
-  $('meta').textContent = (p ? p.name : '') + (list && list.length ? ' · ' + (idx + 1) + ' of ' + list.length : '');
+  let meta = (p ? p.name : '') + (list && list.length ? ' · ' + (idx + 1) + ' of ' + list.length : '');
+  const ci = chapterIndex();
+  if (useChapters() && ci >= 0) meta = 'Ch ' + (ci + 1) + '/' + chapters.length + ' · ' + chapters[ci].name;
+  $('meta').textContent = meta;
 }
-setInterval(updateNow, 3000);
+setInterval(updateNow, 1000);
 
 function startSelected(){
   const p = playlists[$('pick').value];
@@ -219,10 +301,20 @@ function togglePlay(){
   if (!currentId || (p && p.id !== currentId)) return startSelected();
   playing ? player.pauseVideo() : player.playVideo();
 }
-function next(){ if (ready) player.nextVideo(); }
+function next(){
+  if (!ready) return;
+  const ci = chapterIndex();
+  if (useChapters() && ci >= 0 && ci < chapters.length - 1){ player.seekTo(chapters[ci + 1].t, true); setTimeout(updateNow, 300); return; }
+  player.nextVideo();
+}
 function prev(){
   if (!ready) return;
-  player.getCurrentTime() > 5 ? player.seekTo(0, true) : player.previousVideo();
+  const now = player.getCurrentTime(), ci = chapterIndex();
+  if (useChapters() && ci >= 0){
+    if (now - chapters[ci].t > 5 || ci === 0) { if (now > 5 || ci > 0) { player.seekTo(chapters[ci].t, true); setTimeout(updateNow, 300); return; } }
+    else { player.seekTo(chapters[ci - 1].t, true); setTimeout(updateNow, 300); return; }
+  }
+  now > 5 ? player.seekTo(0, true) : player.previousVideo();
 }
 $('play').onclick = togglePlay;
 $('next').onclick = next;
