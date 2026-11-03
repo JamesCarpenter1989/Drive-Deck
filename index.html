@@ -73,9 +73,27 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 select,input{flex:1;min-width:0;width:100%;height:48px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--fg);font:inherit;font-size:16px;padding:0 12px}
 .group input{background:var(--bg)}
+.group > input{flex:none}
 .small{height:46px;padding:0 14px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--fg);font:inherit;font-size:15px;cursor:pointer;white-space:nowrap}
 .small.on{border-color:var(--accent);color:var(--accent)}
 .list{display:flex;flex-direction:column}
+.search{display:flex;align-items:center;gap:8px;height:48px;border-radius:12px;border:1px solid var(--raisedLine);background:var(--bg);padding:0 12px;color:var(--muted)}
+.search svg{width:18px;height:18px;flex:none}
+.search input{flex:1;min-width:0;height:auto;border:0;background:none;padding:0;outline:none}
+.search input::-webkit-search-cancel-button{filter:grayscale(1)}
+#qState{font-size:12px;white-space:nowrap}
+.results{display:flex;flex-direction:column}
+.results:empty{display:none}
+.res{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line)}
+.thumb{width:88px;height:50px;flex:none;border-radius:6px;background:var(--raised) center/cover no-repeat;position:relative}
+.thumb span{position:absolute;right:4px;bottom:4px;font-size:10px;background:var(--bg);color:var(--accent);padding:1px 4px;border-radius:3px;font-variant-numeric:tabular-nums}
+.res .info{flex:1}
+.res .t{font-size:14px;font-weight:600}
+.res .d{font-size:12px;color:var(--muted)}
+.res .t,.res .d{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.plus{width:40px;height:40px;flex:none;border-radius:10px;border:1px solid var(--raisedLine);background:var(--raised);color:var(--fg);display:grid;place-items:center;cursor:pointer}
+.plus svg{width:20px;height:20px}
+.plus[disabled]{background:none;color:var(--muted);cursor:default}
 .item{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line)}
 .item span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .item button{background:none;border:0;color:var(--danger);font:inherit;cursor:pointer;padding:6px}
@@ -127,15 +145,22 @@ select,input{flex:1;min-width:0;width:100%;height:48px;border-radius:12px;border
     </div>
     <div id="status"></div>
     <div class="group">
-      <h2>Playlists</h2>
-      <input id="newName" placeholder="Name, e.g. Morning drive" autocomplete="off">
-      <input id="newLink" placeholder="Paste YouTube playlist or video link" autocomplete="off" inputmode="url">
-      <div class="row"><button class="small" id="add">Add playlist</button></div>
+      <h2>Add playlist</h2>
+      <label class="search" for="q">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="q" type="search" placeholder="Search YouTube or paste a link" autocomplete="off" spellcheck="false" enterkeyhint="search">
+        <span id="qState"></span>
+      </label>
+      <div class="results" id="results"></div>
+      <p class="hint" id="qHint">Finds playlists, and videos over 20 minutes that have chapters.</p>
+    </div>
+    <div class="group">
+      <h2>Your playlists</h2>
       <div class="list" id="list"></div>
       <p class="hint">Playlists must be Public or Unlisted. Private playlists, and videos whose owners block embedding, will not play.</p>
     </div>
     <div class="group">
-      <h2>Chapters</h2>
+      <h2>API key and chapters</h2>
       <input id="apiKey" placeholder="Paste YouTube Data API key" autocomplete="off" spellcheck="false">
       <div class="row">
         <button class="small" id="saveKey">Save key</button>
@@ -193,15 +218,119 @@ function render(){
   });
 }
 
-$('add').onclick = () => {
-  const parsed = parseLink($('newLink').value);
-  if (!parsed){ status('That link does not look like a YouTube playlist or video. Copy it from the Share button in YouTube.', true); return; }
-  const name = $('newName').value.trim() || (parsed.type === 'list' ? 'Playlist ' : 'Video ') + (playlists.length + 1);
+function addEntry(name, parsed){
+  if (playlists.some(p => p.id === parsed.id)){ status(name + ' is already in your playlists.'); return false; }
   playlists.push({ name, ...parsed }); save(); render();
   $('pick').value = playlists.length - 1;
-  $('newName').value = ''; $('newLink').value = '';
-  status('Added ' + name + '. Tap play to start.');
-};
+  status('Added ' + name + '.');
+  return true;
+}
+
+/* Search YouTube as you type: playlists, plus long videos that have chapters */
+const PLUS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>';
+const TICK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg>';
+let qTimer = null, qSeq = 0, lastQ = '';
+function decode(t){ const e = document.createElement('textarea'); e.innerHTML = t || ''; return e.value; }
+function isoSec(d){ const m = /PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/.exec(d || '') || []; return (+m[1] || 0) * 3600 + (+m[2] || 0) * 60 + (+m[3] || 0); }
+
+function resultRow(r){
+  const row = document.createElement('div'); row.className = 'res';
+  const th = document.createElement('div'); th.className = 'thumb';
+  if (r.thumb) th.style.backgroundImage = 'url("' + r.thumb + '")';
+  const badge = document.createElement('span'); badge.textContent = r.corner; th.appendChild(badge);
+  const info = document.createElement('div'); info.className = 'info';
+  const t = document.createElement('div'); t.className = 't'; t.textContent = r.title;
+  const d = document.createElement('div'); d.className = 'd'; d.textContent = r.detail;
+  info.append(t, d);
+  const b = document.createElement('button'); b.className = 'plus';
+  const have = playlists.some(p => p.id === r.id);
+  b.innerHTML = have ? TICK : PLUS; b.disabled = have;
+  b.setAttribute('aria-label', have ? 'Added' : 'Add ' + r.title);
+  b.onclick = () => { if (addEntry(r.title, { type: r.type, id: r.id })){ b.innerHTML = TICK; b.disabled = true; b.setAttribute('aria-label', 'Added'); } };
+  row.append(th, info, b);
+  return row;
+}
+function showResults(rows, note){
+  const box = $('results'); box.innerHTML = '';
+  rows.forEach(r => box.appendChild(resultRow(r)));
+  $('qState').textContent = note || '';
+}
+
+async function runSearch(q){
+  const seq = ++qSeq;
+  $('qState').textContent = 'Searching…';
+  const base = 'https://www.googleapis.com/youtube/v3/';
+  const k = '&key=' + encodeURIComponent(apiKey);
+  try{
+    const r = await fetch(base + 'search?part=snippet&type=playlist,video&maxResults=20&q=' + encodeURIComponent(q) + k);
+    if (seq !== qSeq) return;
+    if (!r.ok){
+      const quota = r.status === 403;
+      showResults([], '');
+      $('qHint').textContent = quota ? 'Daily search limit reached. Paste a link instead, or try again tomorrow.' : 'Search failed. Check your API key below.';
+      return;
+    }
+    const items = (await r.json()).items || [];
+    const vids = items.filter(i => i.id.kind === 'youtube#video').map(i => i.id.videoId);
+    const lists = items.filter(i => i.id.kind === 'youtube#playlist').map(i => i.id.playlistId);
+    const [vr, lr] = await Promise.all([
+      vids.length ? fetch(base + 'videos?part=snippet,contentDetails&id=' + vids.join(',') + k).then(x => x.json()) : { items: [] },
+      lists.length ? fetch(base + 'playlists?part=contentDetails&id=' + lists.join(',') + k).then(x => x.json()) : { items: [] }
+    ]);
+    if (seq !== qSeq) return;
+    const vInfo = {}, lCount = {};
+    (vr.items || []).forEach(v => vInfo[v.id] = v);
+    (lr.items || []).forEach(l => lCount[l.id] = l.contentDetails.itemCount);
+    const rows = [];
+    items.forEach(i => {
+      const sn = i.snippet || {}, thumb = (sn.thumbnails && (sn.thumbnails.medium || sn.thumbnails.default) || {}).url;
+      if (i.id.kind === 'youtube#playlist'){
+        const n = lCount[i.id.playlistId];
+        if (!n) return;
+        rows.push({ type: 'list', id: i.id.playlistId, title: decode(sn.title), thumb, corner: n + ' videos', detail: 'Playlist · ' + n + ' videos · ' + decode(sn.channelTitle) });
+      } else {
+        const v = vInfo[i.id.videoId]; if (!v) return;
+        const secs = isoSec(v.contentDetails.duration);
+        const ch = parseChapters(v.snippet.description || '');
+        chapCache[v.id] = ch;
+        if (secs < 1200 || !ch.length) return;
+        rows.push({ type: 'video', id: v.id, title: decode(v.snippet.title), thumb, corner: fmt(secs), detail: 'Video · ' + ch.length + ' chapters · ' + decode(v.snippet.channelTitle) });
+      }
+    });
+    showResults(rows, rows.length ? '' : 'No matches');
+    $('qHint').textContent = 'Finds playlists, and videos over 20 minutes that have chapters.';
+  }catch(e){
+    if (seq === qSeq){ showResults([], ''); $('qHint').textContent = 'Search failed. Check your connection.'; }
+  }
+}
+
+$('q').addEventListener('input', () => {
+  clearTimeout(qTimer);
+  const v = $('q').value.trim();
+  const link = parseLink(v);
+  if (link){
+    qSeq++;
+    lastQ = '';
+    const row = { type: link.type, id: link.id, title: link.type === 'list' ? 'Playlist from link' : 'Video from link', thumb: link.type === 'video' ? 'https://i.ytimg.com/vi/' + link.id + '/mqdefault.jpg' : '', corner: link.type === 'list' ? 'Link' : 'Video', detail: 'Tap + to add' };
+    showResults([row], '');
+    if (apiKey){ // look up its real name and picture
+      const seq = qSeq;
+      fetch('https://www.googleapis.com/youtube/v3/' + (link.type === 'list' ? 'playlists' : 'videos') + '?part=snippet&id=' + link.id + '&key=' + encodeURIComponent(apiKey))
+        .then(r => r.json()).then(j => {
+          const it = j.items && j.items[0]; if (!it || seq !== qSeq) return;
+          row.title = decode(it.snippet.title); row.detail = (link.type === 'list' ? 'Playlist · ' : 'Video · ') + decode(it.snippet.channelTitle);
+          const th = it.snippet.thumbnails; if (th) row.thumb = (th.medium || th.default).url;
+          showResults([row], '');
+        }).catch(() => {});
+    }
+    return;
+  }
+  if (v.length < 3){ qSeq++; lastQ = ''; showResults([], ''); return; }
+  if (!apiKey){ showResults([], ''); $('qHint').textContent = 'Save an API key below to search, or paste a link.'; return; }
+  if (v === lastQ) return;
+  qTimer = setTimeout(() => { lastQ = v; runSearch(v); }, 500);
+});
+$('q').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); $('q').blur(); } });
 
 $('pick').onchange = () => {
   $('pick').blur();
