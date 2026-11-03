@@ -83,6 +83,8 @@ select:focus{border-color:var(--line)}
 
 /* Page 2: video and settings button, same height as page 1 */
 .p2{display:flex;gap:10px}
+/* Invisible layer over the top half of the video so swipes there switch pages; Skip ad sits in the bottom half */
+.shield{position:absolute;left:0;top:0;width:min(var(--h), calc(100% - 90px));height:calc(var(--h) / 2);z-index:2}
 #player{width:min(var(--h), calc(100% - 90px));height:var(--h);flex:none;border-radius:10px;overflow:hidden;background:#000}
 .gear{flex:1;height:var(--h);border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--soft);display:grid;place-items:center;cursor:pointer}
 .gear svg{width:44px;height:44px}
@@ -182,6 +184,7 @@ select,input{flex:1;min-width:0;width:100%;height:48px;border-radius:12px;border
       </section>
       <section class="page p2" id="page2" aria-label="Video">
         <div id="player"></div>
+        <div class="shield" aria-hidden="true"></div>
         <button class="gear" id="openSettings" aria-label="Settings">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33 1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82 1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         </button>
@@ -192,7 +195,6 @@ select,input{flex:1;min-width:0;width:100%;height:48px;border-radius:12px;border
   <section class="drawer" id="settingsView" inert>
    <div class="settings">
     <div class="bar">
-      <button class="back" id="closeSettings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>Close</button>
       <h1>Settings</h1>
     </div>
     <div id="status"></div>
@@ -729,7 +731,7 @@ function go(dir){ // dir -1: content moves left (swipe right-to-left), +1: moves
 (() => {
   const c = $('carousel');
   let x0 = 0, y0 = 0, dx = 0, drag = false, track = false;
-  const skip = '#settingsView, #found, .findRow, input, select, textarea';
+  const skip = '#settingsView, #found'; // swipes work everywhere else, including the search bar
   document.addEventListener('touchstart', e => { if (e.target.closest(skip)){ track = false; return; } const t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; dx = 0; drag = false; track = true; }, { passive: true });
   document.addEventListener('touchmove', e => {
     if (!track) return;
@@ -957,7 +959,6 @@ function closeSettings(){
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 $('openSettings').onclick = () => settingsOpen ? closeSettings() : openSettings();
-$('closeSettings').onclick = closeSettings;
 
 /* Resume: remember where playback was and carry on from there next time */
 const RKEY = 'drivedeck.resume';
