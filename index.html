@@ -34,6 +34,33 @@ select:focus{border-color:var(--line)}
 
 /* Page 1: player */
 .p1{display:flex;flex-direction:column;gap:8px}
+.findRow{display:flex;gap:8px;height:38px;flex:none}
+.findBox{flex:1 1 0;min-width:0;display:flex;align-items:center;gap:8px;border-radius:12px;border:1px solid var(--line);background:var(--panel);padding:0 12px;color:var(--muted)}
+.findBox:focus-within{border-color:#5b666b}
+.findBox svg{width:16px;height:16px;flex:none}
+.findBox input{flex:1;min-width:0;height:100%;border:0;background:none;padding:0;outline:none;font-size:15px}
+.findBox input::-webkit-search-cancel-button{filter:grayscale(1)}
+.mic{flex:0 0 35%;border-radius:12px;border:1px solid var(--raisedLine);background:var(--raised);color:var(--fg);display:grid;place-items:center;cursor:pointer}
+.mic svg{width:20px;height:20px}
+.mic.on{background:var(--accent);border-color:var(--accent);color:var(--bg)}
+.found{position:absolute;left:0;right:0;top:0;bottom:46px;z-index:4;display:flex;flex-direction:column;justify-content:flex-end;gap:6px;background:rgba(15,18,20,.82);border-radius:12px}
+.list-results{background:var(--panel);border:1px solid var(--raisedLine);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+.fRow{height:54px;flex:none;border:0;border-bottom:1px solid var(--line);background:none;color:var(--fg);font:inherit;text-align:left;padding:0 10px;display:flex;align-items:center;gap:10px;cursor:pointer}
+.fRow:last-child{border-bottom:0}
+.fThumb{width:64px;height:36px;flex:none;border-radius:5px;background:var(--raised) center/cover no-repeat}
+.fText{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.fText b,.fText small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fText b{font-size:15px;font-weight:600}
+.fText small{font-size:12px;color:var(--muted)}
+.fRow svg{width:18px;height:18px;fill:var(--soft);flex:none}
+.empty{background:var(--panel);border:1px solid var(--raisedLine);border-radius:12px;padding:14px;font-size:14px;color:var(--soft)}
+.vBest{border-radius:12px;border:1px solid var(--accent);background:var(--panel);color:var(--fg);font:inherit;text-align:left;padding:10px;display:flex;align-items:center;gap:12px;cursor:pointer}
+.vBest .fThumb{width:96px;height:54px}
+.vBest b{font-size:16px}
+.vBest em{font-style:normal;font-size:12px;font-weight:600;color:var(--accent)}
+.vMore{display:flex;gap:6px}
+.vMore button{flex:1;min-width:0;height:44px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--fg);font:inherit;font-size:13px;padding:0 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.vMore .cancel{flex:0 0 70px;color:var(--soft)}
 .now{height:calc(var(--h) - 104px);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:7px;display:flex;gap:12px;align-items:center}
 .art{width:calc(var(--h) - 118px);height:calc(var(--h) - 118px);flex:none;border-radius:8px;background:var(--line);object-fit:cover}
 .art[src=""]{visibility:hidden}
@@ -61,8 +88,189 @@ select:focus{border-color:var(--line)}
 .gear svg{width:44px;height:44px}
 
 
+/* Songs inside saved videos, so player search can find them */
+function rememberSongs(id, list){
+  if (!Array.isArray(list) || !list.length) return;
+  const e = playlists.find(p => p.type === 'video' && p.id === id);
+  if (e && (!e.songs || e.songs.length !== list.length)){ e.songs = list; save(); }
+}
+async function fillSongs(){
+  if (!apiKey) return;
+  for (const e of playlists){
+    if (e.type !== 'video' || e.songs) continue;
+    const c = await fetchChapters(e.id);
+    if (Array.isArray(c)){ e.songs = c; save(); }
+  }
+}
+
+/* Player search: matches your saved list, allowing for small mishearings */
+function norm(t){ return (t || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^\p{L}\p{N}\p{M}]+/gu, ' ').trim(); }
+function grams(t){ const g = new Map(); const x = ' ' + t + ' '; for (let i = 0; i < x.length - 1; i++){ const k = x.slice(i, i + 2); g.set(k, (g.get(k) || 0) + 1); } return g; }
+function dice(a, b){
+  if (!a || !b) return 0;
+  const A = grams(a), B = grams(b); let hit = 0, n = 0;
+  A.forEach((v, k) => { n += v; hit += Math.min(v, B.get(k) || 0); });
+  B.forEach(v => n += v);
+  return 2 * hit / n;
+}
+function score(q, name){
+  const n = norm(name);
+  if (!q || !n) return 0;
+  if (n.startsWith(q)) return 1;
+  if (n.includes(q)) return 0.9;
+  // compare against the stretch of the name that is the same length as what was typed or said
+  const words = n.split(' '), qn = q.split(' ').length;
+  let best = dice(q, n);
+  for (let i = 0; i + qn <= words.length; i++) best = Math.max(best, dice(q, words.slice(i, i + qn).join(' ')));
+  return best * 0.85;
+}
+function thumbFor(e){ return e.type === 'video' ? 'https://i.ytimg.com/vi/' + e.id + '/mqdefault.jpg' : (e.thumb || ''); }
+function findMatches(text){
+  const q = norm(text).replace(/^(play|put on|listen to|เปิด|เล่น)\s+/, '');
+  if (!q) return [];
+  const out = [];
+  playlists.forEach((e, i) => {
+    const sc = score(q, e.name);
+    const detail = e.type === 'video' ? 'Video' + (e.songs && e.songs.length ? ' · ' + e.songs.length + ' songs' : '') : 'Playlist';
+    if (sc >= 0.4) out.push({ sc: sc + 0.05, i, title: e.name, detail, thumb: thumbFor(e) });
+    if (opts.songSearch && e.songs) e.songs.forEach((c, n) => {
+      const ss = score(q, c.name);
+      if (ss >= 0.45) out.push({ sc: ss, i, at: c.t, title: c.name, detail: 'Song ' + (n + 1) + '/' + e.songs.length + ' · ' + e.name, thumb: thumbFor(e) });
+    });
+  });
+  return out.sort((a, b) => b.sc - a.sc);
+}
+function playMatch(m){
+  closeFound();
+  $('find').value = ''; $('find').blur();
+  keepAwake(); startSilent();
+  $('pick').value = m.i;
+  const e = playlists[m.i];
+  if (e.id === currentId && m.at !== undefined && ready){ player.seekTo(m.at, true); player.playVideo(); return; }
+  currentId = null;
+  startSelected(m.at);
+}
+
+function rowFor(m){
+  const b = document.createElement('button'); b.className = 'fRow';
+  const th = document.createElement('span'); th.className = 'fThumb'; if (m.thumb) th.style.backgroundImage = 'url("' + m.thumb + '")';
+  const tx = document.createElement('span'); tx.className = 'fText';
+  const t = document.createElement('b'); t.textContent = m.title;
+  const d = document.createElement('small'); d.textContent = m.detail;
+  tx.append(t, d);
+  b.append(th, tx);
+  b.insertAdjacentHTML('beforeend', '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>');
+  b.onclick = () => playMatch(m);
+  return b;
+}
+function maxRows(){ return Math.max(1, Math.floor(($('carousel').clientHeight - 48) / 54)); }
+function showTyped(list){
+  const f = $('found'); f.innerHTML = '';
+  if (!list.length){ const e = document.createElement('div'); e.className = 'empty'; e.textContent = 'Nothing in your list matches that.'; f.appendChild(e); f.hidden = false; return; }
+  const box = document.createElement('div'); box.className = 'list-results';
+  list.slice(0, maxRows()).forEach(m => box.appendChild(rowFor(m)));
+  f.appendChild(box); f.hidden = false;
+}
+function closeFound(){ clearInterval(countdown); $('found').hidden = true; $('found').innerHTML = ''; }
+
+$('find').addEventListener('input', () => {
+  const v = $('find').value.trim();
+  if (!v){ closeFound(); return; }
+  showTyped(findMatches(v));
+});
+$('find').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); const m = findMatches($('find').value)[0]; if (m) playMatch(m); } });
+document.addEventListener('pointerdown', e => {
+  if ($('found').hidden) return;
+  if (e.target.closest('#found, .findRow')) return;
+  closeFound(); $('find').value = ''; $('find').blur();
+});
+
+/* Voice search: Chrome's built-in speech recognition */
+let rec = null, listening = false, countdown = null, volBefore = null;
+const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
+function setListening(on){
+  listening = on;
+  $('mic').classList.toggle('on', on);
+  $('mic').setAttribute('aria-label', on ? 'Listening, tap to stop' : 'Voice search');
+  // Turn the music down while listening so it does not drown out your voice
+  if (ready){
+    if (on){ volBefore = player.getVolume(); player.setVolume(Math.min(volBefore, 15)); }
+    else if (volBefore !== null){ player.setVolume(volBefore); volBefore = null; }
+  }
+}
+function showVoice(heard, list){
+  const f = $('found'); f.innerHTML = '';
+  if (!list.length){
+    const e = document.createElement('div'); e.className = 'empty';
+    e.textContent = 'Heard “' + heard + '” but nothing in your list matches.';
+    f.appendChild(e); f.hidden = false;
+    setTimeout(() => { if (!listening) closeFound(); }, 4000);
+    return;
+  }
+  const best = list[0];
+  const card = document.createElement('button'); card.className = 'vBest';
+  const th = document.createElement('span'); th.className = 'fThumb'; if (best.thumb) th.style.backgroundImage = 'url("' + best.thumb + '")';
+  const tx = document.createElement('span'); tx.className = 'fText';
+  const t = document.createElement('b'); t.textContent = best.title;
+  const d = document.createElement('small'); d.textContent = best.detail;
+  const c = document.createElement('em');
+  tx.append(t, d, c); card.append(th, tx);
+  card.onclick = () => playMatch(best);
+  const more = document.createElement('div'); more.className = 'vMore';
+  list.slice(1, 3).forEach(m => { const b = document.createElement('button'); b.textContent = m.title; b.onclick = () => playMatch(m); more.appendChild(b); });
+  const cancel = document.createElement('button'); cancel.className = 'cancel'; cancel.textContent = 'Cancel';
+  cancel.onclick = () => { closeFound(); $('find').value = ''; };
+  more.appendChild(cancel);
+  f.append(card, more); f.hidden = false;
+  // Plays the best match after 3 seconds, so nothing needs tapping while driving
+  let n = 3;
+  c.textContent = 'Playing in ' + n + ' · tap to play now';
+  clearInterval(countdown);
+  countdown = setInterval(() => {
+    n--;
+    if (n <= 0){ clearInterval(countdown); playMatch(best); return; }
+    c.textContent = 'Playing in ' + n + ' · tap to play now';
+  }, 1000);
+}
+$('mic').onclick = () => {
+  if (!Speech){ status('Voice search is not available in this browser.', true); return; }
+  if (listening && rec){ rec.stop(); return; }
+  closeFound();
+  rec = new Speech();
+  rec.lang = opts.voiceLang;
+  rec.interimResults = true;
+  rec.maxAlternatives = 3;
+  let finalText = '', alts = [];
+  rec.onstart = () => { setListening(true); $('find').value = ''; $('find').placeholder = 'Listening…'; };
+  rec.onresult = e => {
+    let txt = '';
+    for (let i = 0; i < e.results.length; i++){
+      txt += e.results[i][0].transcript;
+      if (e.results[i].isFinal){ finalText = txt; alts = Array.from(e.results[i]).map(a => a.transcript); }
+    }
+    $('find').value = txt;
+  };
+  rec.onerror = e => {
+    const msg = { 'not-allowed': 'Allow the microphone for Drive Deck to use voice search.', 'no-speech': 'Did not hear anything. Tap the mic and try again.', 'network': 'Voice search needs a connection.' }[e.error];
+    if (msg) status(msg, e.error !== 'no-speech');
+  };
+  rec.onend = () => {
+    setListening(false);
+    $('find').placeholder = 'Find in your list';
+    const heard = (finalText || $('find').value).trim();
+    if (!heard){ $('find').value = ''; return; }
+    // Try each version Chrome heard and keep whichever matches best
+    let list = findMatches(heard);
+    alts.slice(1).forEach(a => { const l = findMatches(a); if (l.length && (!list.length || l[0].sc > list[0].sc)) list = l; });
+    $('find').value = heard;
+    showVoice(heard, list);
+  };
+  try{ rec.start(); }catch(err){ setListening(false); }
+};
+
 /* Settings page */
 .settings{display:flex;flex-direction:column;gap:14px}
+.settings > *{flex:none}
 .bar{display:flex;align-items:center;gap:10px;position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:8px;margin-top:-8px}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--bg);z-index:10}
 .bar h1{font-size:18px;margin:0}
@@ -77,6 +285,12 @@ select,input{flex:1;min-width:0;width:100%;height:48px;border-radius:12px;border
 .small{height:46px;padding:0 14px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--fg);font:inherit;font-size:15px;cursor:pointer;white-space:nowrap}
 .small.on{border-color:var(--accent);color:var(--accent)}
 .list{display:flex;flex-direction:column}
+.check{display:flex;align-items:center;gap:12px;min-height:44px;font-size:15px;cursor:pointer}
+.check input{flex:none;width:22px;height:22px;margin:0;accent-color:var(--accent)}
+.optRow{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:15px;min-height:44px}
+.seg{display:flex;gap:4px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:3px}
+.seg button{height:36px;padding:0 14px;border:0;border-radius:9px;background:none;color:var(--soft);font:inherit;font-size:14px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--raised);color:var(--fg);font-weight:600}
 .search{display:flex;align-items:center;gap:8px;height:48px;border-radius:12px;border:1px solid var(--raisedLine);background:var(--bg);padding:0 12px;color:var(--muted)}
 .search svg{width:18px;height:18px;flex:none}
 .search input{flex:1;min-width:0;height:auto;border:0;background:none;padding:0;outline:none}
@@ -127,7 +341,15 @@ select,input{flex:1;min-width:0;width:100%;height:48px;border-radius:12px;border
           <button id="play" aria-label="Play"><svg id="playIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
           <button id="next" aria-label="Next"><svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z"/></svg></button>
         </div>
-        <select id="pick" aria-label="Choose playlist"></select>
+        <select id="pick" aria-hidden="true" tabindex="-1" hidden></select>
+        <div class="found" id="found" hidden></div>
+        <div class="findRow">
+          <label class="findBox" for="find">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <input id="find" type="search" placeholder="Find in your list" autocomplete="off" spellcheck="false" enterkeyhint="search">
+          </label>
+          <button class="mic" id="mic" aria-label="Voice search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+        </div>
       </section>
       <section class="page p2" id="page2" aria-label="Video">
         <div id="player"></div>
@@ -152,7 +374,7 @@ select,input{flex:1;min-width:0;width:100%;height:48px;border-radius:12px;border
         <span id="qState"></span>
       </label>
       <div class="results" id="results"></div>
-      <p class="hint" id="qHint">Finds playlists, and videos over 20 minutes that have chapters.</p>
+      <p class="hint" id="qHint">Finds videos over 20 minutes with chapters or a tracklist in the comments.</p>
     </div>
     <div class="group">
       <h2>Your playlists</h2>
@@ -168,6 +390,18 @@ select,input{flex:1;min-width:0;width:100%;height:48px;border-radius:12px;border
       </div>
       <p class="hint">With a key saved, next and previous jump between chapters when a video has them. After the last chapter, next goes to the next video. The key is stored only on this phone.</p>
     </div>
+    <div class="group">
+      <h2>Options</h2>
+      <label class="check" for="optNoLists"><input type="checkbox" id="optNoLists"><span>Leave regular playlists out of YouTube search</span></label>
+      <label class="check" for="optSongs"><input type="checkbox" id="optSongs"><span>Player search also finds songs inside videos</span></label>
+      <div class="optRow">
+        <span>Voice search language</span>
+        <div class="seg" role="group" aria-label="Voice search language">
+          <button id="langEn" data-lang="en-GB">English</button>
+          <button id="langTh" data-lang="th-TH">ไทย</button>
+        </div>
+      </div>
+    </div>
   </section>
 
 </main>
@@ -175,6 +409,11 @@ select,input{flex:1;min-width:0;width:100%;height:48px;border-radius:12px;border
 <script>
 const $ = id => document.getElementById(id);
 const KEY = 'drivedeck.playlists';
+/* Options, kept on this phone */
+const OKEY = 'drivedeck.options';
+let opts = { noLists: true, songSearch: true, voiceLang: 'en-GB' };
+try{ Object.assign(opts, JSON.parse(localStorage.getItem(OKEY)) || {}); }catch(e){}
+function saveOpts(){ try{ localStorage.setItem(OKEY, JSON.stringify(opts)); }catch(e){} }
 let loadToken = 0, artId = null, playlists = [], player, ready = false, playing = false, shuffle = false, currentId = null;
 
 function load(){ try{ playlists = JSON.parse(localStorage.getItem(KEY)) || []; }catch(e){ playlists = []; } }
@@ -208,6 +447,7 @@ function render(){
     o.value = i; o.textContent = p.name;
     pick.appendChild(o);
   });
+  if (!currentId) $('title').textContent = playlists.length ? 'Search, or press play' : 'Add a playlist in settings';
   const list = $('list'); list.innerHTML = '';
   playlists.forEach((p,i) => {
     const d = document.createElement('div'); d.className = 'item';
@@ -218,9 +458,11 @@ function render(){
   });
 }
 
-function addEntry(name, parsed){
+function addEntry(name, parsed, songs){
   if (playlists.some(p => p.id === parsed.id)){ status(name + ' is already in your playlists.'); return false; }
-  playlists.push({ name, ...parsed }); save(); render();
+  const entry = { name, ...parsed };
+  if (songs && songs.length) entry.songs = songs;
+  playlists.push(entry); save(); render();
   $('pick').value = playlists.length - 1;
   status('Added ' + name + '.');
   return true;
@@ -246,7 +488,7 @@ function resultRow(r){
   const have = playlists.some(p => p.id === r.id);
   b.innerHTML = have ? TICK : PLUS; b.disabled = have;
   b.setAttribute('aria-label', have ? 'Added' : 'Add ' + r.title);
-  b.onclick = () => { if (addEntry(r.title, { type: r.type, id: r.id })){ b.innerHTML = TICK; b.disabled = true; b.setAttribute('aria-label', 'Added'); } };
+  b.onclick = () => { if (addEntry(r.title, { type: r.type, id: r.id, thumb: r.thumb || '' }, r.chapters)){ b.innerHTML = TICK; b.disabled = true; b.setAttribute('aria-label', 'Added'); } };
   row.append(th, info, b);
   return row;
 }
@@ -261,8 +503,10 @@ async function runSearch(q){
   $('qState').textContent = 'Searching…';
   const base = 'https://www.googleapis.com/youtube/v3/';
   const k = '&key=' + encodeURIComponent(apiKey);
+  // With playlists excluded, YouTube can filter to long videos itself, which gives better results
+  const scope = opts.noLists ? 'type=video&videoDuration=long' : 'type=playlist,video';
   try{
-    const r = await fetch(base + 'search?part=snippet&type=playlist,video&maxResults=50&q=' + encodeURIComponent(q) + k);
+    const r = await fetch(base + 'search?part=snippet&' + scope + '&maxResults=50&q=' + encodeURIComponent(q) + k);
     if (seq !== qSeq) return;
     if (!r.ok){
       const quota = r.status === 403;
@@ -272,7 +516,7 @@ async function runSearch(q){
     }
     const items = (await r.json()).items || [];
     const vids = items.filter(i => i.id.kind === 'youtube#video').map(i => i.id.videoId);
-    const lists = items.filter(i => i.id.kind === 'youtube#playlist').map(i => i.id.playlistId);
+    const lists = opts.noLists ? [] : items.filter(i => i.id.kind === 'youtube#playlist').map(i => i.id.playlistId);
     const [vr, lr] = await Promise.all([
       vids.length ? fetch(base + 'videos?part=snippet,contentDetails&id=' + vids.join(',') + k).then(x => x.json()) : { items: [] },
       lists.length ? fetch(base + 'playlists?part=contentDetails&id=' + lists.join(',') + k).then(x => x.json()) : { items: [] }
@@ -281,26 +525,45 @@ async function runSearch(q){
     const vInfo = {}, lCount = {};
     (vr.items || []).forEach(v => vInfo[v.id] = v);
     (lr.items || []).forEach(l => lCount[l.id] = l.contentDetails.itemCount);
-    const rows = [];
+    const chaptered = [], needComments = [], listRows = [];
     items.forEach(i => {
       const sn = i.snippet || {}, thumb = (sn.thumbnails && (sn.thumbnails.medium || sn.thumbnails.default) || {}).url;
       if (i.id.kind === 'youtube#playlist'){
+        if (opts.noLists) return;
         const n = lCount[i.id.playlistId];
         if (!n) return;
-        rows.push({ type: 'list', id: i.id.playlistId, title: decode(sn.title), thumb, corner: n + ' videos', detail: 'Playlist · ' + n + ' videos · ' + decode(sn.channelTitle) });
+        listRows.push({ type: 'list', id: i.id.playlistId, title: decode(sn.title), thumb, corner: n + ' videos', detail: 'Playlist · ' + n + ' videos · ' + decode(sn.channelTitle) });
       } else {
         const v = vInfo[i.id.videoId]; if (!v) return;
         const secs = isoSec(v.contentDetails.duration);
+        if (secs < 1200) return;
+        const row = { type: 'video', id: v.id, title: decode(v.snippet.title), thumb, corner: fmt(secs), channel: decode(v.snippet.channelTitle) };
         const ch = parseChapters(v.snippet.description || '');
-        if (ch.length) chapCache[v.id] = ch; // empty: the player still checks the comments later
-        if (secs < 1200 || !ch.length) return;
-        rows.push({ type: 'video', id: v.id, title: decode(v.snippet.title), thumb, corner: fmt(secs), detail: 'Video · ' + ch.length + ' chapters · ' + decode(v.snippet.channelTitle) });
+        if (ch.length){
+          chapCache[v.id] = ch; row.chapters = ch;
+          row.detail = 'Video · ' + ch.length + ' songs · ' + row.channel;
+          chaptered.push(row);
+        } else needComments.push(row);
       }
     });
-    // Long chapter videos first, then playlists, each keeping YouTube's relevance order
-    rows.sort((x, y) => (x.type === 'video' ? 0 : 1) - (y.type === 'video' ? 0 : 1));
-    showResults(rows, rows.length ? '' : 'No matches');
-    $('qHint').textContent = 'Finds playlists, and videos over 20 minutes that have chapters.';
+    // Show chaptered videos straight away, then add videos whose tracklist is in the comments
+    const paint = extra => showResults(chaptered.concat(extra, listRows), '');
+    paint([]);
+    const checks = needComments.slice(0, 15); // keeps each search to a few extra units
+    const found = await Promise.all(checks.map(row => commentTracklist(row.id).then(ch => {
+      if (!ch.length) return null;
+      chapCache[row.id] = ch; row.chapters = ch;
+      row.detail = 'Video · ' + ch.length + ' songs (comments) · ' + row.channel;
+      return row;
+    })));
+    if (seq !== qSeq) return;
+    const commentRows = found.filter(Boolean);
+    paint(commentRows);
+    const total = chaptered.length + commentRows.length + listRows.length;
+    $('qState').textContent = total ? '' : 'No matches';
+    $('qHint').textContent = opts.noLists
+      ? 'Finds videos over 20 minutes with chapters or a tracklist in the comments.'
+      : 'Finds videos over 20 minutes with chapters or a tracklist in the comments, then playlists.';
   }catch(e){
     if (seq === qSeq){ showResults([], ''); $('qHint').textContent = 'Search failed. Check your connection.'; }
   }
@@ -418,6 +681,7 @@ async function loadChapters(id){
   chapVideo = id; chapters = [];
   const c = await fetchChapters(id);
   if (id === chapVideo) chapters = Array.isArray(c) ? c : [];
+  rememberSongs(id, c);
 }
 function chapterIndex(){
   if (!chapters.length || !ready) return -1;
@@ -509,7 +773,7 @@ function tick(){
 }
 setInterval(tick, 250);
 
-function startSelected(){
+function startSelected(startAt){
   const p = playlists[$('pick').value];
   if (!p){ status('Add a playlist in settings first.', true); return; }
   const token = ++loadToken;
@@ -534,7 +798,7 @@ function startSelected(){
         }
       }, 2500);
     } else {
-      player.loadVideoById(p.id);
+      player.loadVideoById({ videoId: p.id, startSeconds: startAt || 0 });
     }
   }, 250);
 }
@@ -631,7 +895,7 @@ function go(dir){ // dir -1: content moves left (swipe right-to-left), +1: moves
 (() => {
   const c = $('carousel');
   let x0 = 0, y0 = 0, dx = 0, drag = false, track = false;
-  c.addEventListener('touchstart', e => { const t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; dx = 0; drag = false; track = true; }, { passive: true });
+  c.addEventListener('touchstart', e => { if (e.target.closest('#found, .findRow')){ track = false; return; } const t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; dx = 0; drag = false; track = true; }, { passive: true });
   c.addEventListener('touchmove', e => {
     if (!track) return;
     const t = e.touches[0], ddx = t.clientX - x0, ddy = t.clientY - y0;
@@ -661,6 +925,186 @@ function go(dir){ // dir -1: content moves left (swipe right-to-left), +1: moves
   if (window.visualViewport) visualViewport.addEventListener('resize', layout);
   layout();
 })();
+
+/* Songs inside saved videos, so player search can find them */
+function rememberSongs(id, list){
+  if (!Array.isArray(list) || !list.length) return;
+  const e = playlists.find(p => p.type === 'video' && p.id === id);
+  if (e && (!e.songs || e.songs.length !== list.length)){ e.songs = list; save(); }
+}
+async function fillSongs(){
+  if (!apiKey) return;
+  for (const e of playlists){
+    if (e.type !== 'video' || e.songs) continue;
+    const c = await fetchChapters(e.id);
+    if (Array.isArray(c)){ e.songs = c; save(); }
+  }
+}
+
+/* Player search: matches your saved list, allowing for small mishearings */
+function norm(t){ return (t || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^\p{L}\p{N}\p{M}]+/gu, ' ').trim(); }
+function grams(t){ const g = new Map(); const x = ' ' + t + ' '; for (let i = 0; i < x.length - 1; i++){ const k = x.slice(i, i + 2); g.set(k, (g.get(k) || 0) + 1); } return g; }
+function dice(a, b){
+  if (!a || !b) return 0;
+  const A = grams(a), B = grams(b); let hit = 0, n = 0;
+  A.forEach((v, k) => { n += v; hit += Math.min(v, B.get(k) || 0); });
+  B.forEach(v => n += v);
+  return 2 * hit / n;
+}
+function score(q, name){
+  const n = norm(name);
+  if (!q || !n) return 0;
+  if (n.startsWith(q)) return 1;
+  if (n.includes(q)) return 0.9;
+  // compare against the stretch of the name that is the same length as what was typed or said
+  const words = n.split(' '), qn = q.split(' ').length;
+  let best = dice(q, n);
+  for (let i = 0; i + qn <= words.length; i++) best = Math.max(best, dice(q, words.slice(i, i + qn).join(' ')));
+  return best * 0.85;
+}
+function thumbFor(e){ return e.type === 'video' ? 'https://i.ytimg.com/vi/' + e.id + '/mqdefault.jpg' : (e.thumb || ''); }
+function findMatches(text){
+  const q = norm(text).replace(/^(play|put on|listen to|เปิด|เล่น)\s+/, '');
+  if (!q) return [];
+  const out = [];
+  playlists.forEach((e, i) => {
+    const sc = score(q, e.name);
+    const detail = e.type === 'video' ? 'Video' + (e.songs && e.songs.length ? ' · ' + e.songs.length + ' songs' : '') : 'Playlist';
+    if (sc >= 0.4) out.push({ sc: sc + 0.05, i, title: e.name, detail, thumb: thumbFor(e) });
+    if (opts.songSearch && e.songs) e.songs.forEach((c, n) => {
+      const ss = score(q, c.name);
+      if (ss >= 0.45) out.push({ sc: ss, i, at: c.t, title: c.name, detail: 'Song ' + (n + 1) + '/' + e.songs.length + ' · ' + e.name, thumb: thumbFor(e) });
+    });
+  });
+  return out.sort((a, b) => b.sc - a.sc);
+}
+function playMatch(m){
+  closeFound();
+  $('find').value = ''; $('find').blur();
+  keepAwake(); startSilent();
+  $('pick').value = m.i;
+  const e = playlists[m.i];
+  if (e.id === currentId && m.at !== undefined && ready){ player.seekTo(m.at, true); player.playVideo(); return; }
+  currentId = null;
+  startSelected(m.at);
+}
+
+function rowFor(m){
+  const b = document.createElement('button'); b.className = 'fRow';
+  const th = document.createElement('span'); th.className = 'fThumb'; if (m.thumb) th.style.backgroundImage = 'url("' + m.thumb + '")';
+  const tx = document.createElement('span'); tx.className = 'fText';
+  const t = document.createElement('b'); t.textContent = m.title;
+  const d = document.createElement('small'); d.textContent = m.detail;
+  tx.append(t, d);
+  b.append(th, tx);
+  b.insertAdjacentHTML('beforeend', '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>');
+  b.onclick = () => playMatch(m);
+  return b;
+}
+function maxRows(){ return Math.max(1, Math.floor(($('carousel').clientHeight - 48) / 54)); }
+function showTyped(list){
+  const f = $('found'); f.innerHTML = '';
+  if (!list.length){ const e = document.createElement('div'); e.className = 'empty'; e.textContent = 'Nothing in your list matches that.'; f.appendChild(e); f.hidden = false; return; }
+  const box = document.createElement('div'); box.className = 'list-results';
+  list.slice(0, maxRows()).forEach(m => box.appendChild(rowFor(m)));
+  f.appendChild(box); f.hidden = false;
+}
+function closeFound(){ clearInterval(countdown); $('found').hidden = true; $('found').innerHTML = ''; }
+
+$('find').addEventListener('input', () => {
+  const v = $('find').value.trim();
+  if (!v){ closeFound(); return; }
+  showTyped(findMatches(v));
+});
+$('find').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); const m = findMatches($('find').value)[0]; if (m) playMatch(m); } });
+document.addEventListener('pointerdown', e => {
+  if ($('found').hidden) return;
+  if (e.target.closest('#found, .findRow')) return;
+  closeFound(); $('find').value = ''; $('find').blur();
+});
+
+/* Voice search: Chrome's built-in speech recognition */
+let rec = null, listening = false, countdown = null, volBefore = null;
+const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
+function setListening(on){
+  listening = on;
+  $('mic').classList.toggle('on', on);
+  $('mic').setAttribute('aria-label', on ? 'Listening, tap to stop' : 'Voice search');
+  // Turn the music down while listening so it does not drown out your voice
+  if (ready){
+    if (on){ volBefore = player.getVolume(); player.setVolume(Math.min(volBefore, 15)); }
+    else if (volBefore !== null){ player.setVolume(volBefore); volBefore = null; }
+  }
+}
+function showVoice(heard, list){
+  const f = $('found'); f.innerHTML = '';
+  if (!list.length){
+    const e = document.createElement('div'); e.className = 'empty';
+    e.textContent = 'Heard “' + heard + '” but nothing in your list matches.';
+    f.appendChild(e); f.hidden = false;
+    setTimeout(() => { if (!listening) closeFound(); }, 4000);
+    return;
+  }
+  const best = list[0];
+  const card = document.createElement('button'); card.className = 'vBest';
+  const th = document.createElement('span'); th.className = 'fThumb'; if (best.thumb) th.style.backgroundImage = 'url("' + best.thumb + '")';
+  const tx = document.createElement('span'); tx.className = 'fText';
+  const t = document.createElement('b'); t.textContent = best.title;
+  const d = document.createElement('small'); d.textContent = best.detail;
+  const c = document.createElement('em');
+  tx.append(t, d, c); card.append(th, tx);
+  card.onclick = () => playMatch(best);
+  const more = document.createElement('div'); more.className = 'vMore';
+  list.slice(1, 3).forEach(m => { const b = document.createElement('button'); b.textContent = m.title; b.onclick = () => playMatch(m); more.appendChild(b); });
+  const cancel = document.createElement('button'); cancel.className = 'cancel'; cancel.textContent = 'Cancel';
+  cancel.onclick = () => { closeFound(); $('find').value = ''; };
+  more.appendChild(cancel);
+  f.append(card, more); f.hidden = false;
+  // Plays the best match after 3 seconds, so nothing needs tapping while driving
+  let n = 3;
+  c.textContent = 'Playing in ' + n + ' · tap to play now';
+  clearInterval(countdown);
+  countdown = setInterval(() => {
+    n--;
+    if (n <= 0){ clearInterval(countdown); playMatch(best); return; }
+    c.textContent = 'Playing in ' + n + ' · tap to play now';
+  }, 1000);
+}
+$('mic').onclick = () => {
+  if (!Speech){ status('Voice search is not available in this browser.', true); return; }
+  if (listening && rec){ rec.stop(); return; }
+  closeFound();
+  rec = new Speech();
+  rec.lang = opts.voiceLang;
+  rec.interimResults = true;
+  rec.maxAlternatives = 3;
+  let finalText = '', alts = [];
+  rec.onstart = () => { setListening(true); $('find').value = ''; $('find').placeholder = 'Listening…'; };
+  rec.onresult = e => {
+    let txt = '';
+    for (let i = 0; i < e.results.length; i++){
+      txt += e.results[i][0].transcript;
+      if (e.results[i].isFinal){ finalText = txt; alts = Array.from(e.results[i]).map(a => a.transcript); }
+    }
+    $('find').value = txt;
+  };
+  rec.onerror = e => {
+    const msg = { 'not-allowed': 'Allow the microphone for Drive Deck to use voice search.', 'no-speech': 'Did not hear anything. Tap the mic and try again.', 'network': 'Voice search needs a connection.' }[e.error];
+    if (msg) status(msg, e.error !== 'no-speech');
+  };
+  rec.onend = () => {
+    setListening(false);
+    $('find').placeholder = 'Find in your list';
+    const heard = (finalText || $('find').value).trim();
+    if (!heard){ $('find').value = ''; return; }
+    // Try each version Chrome heard and keep whichever matches best
+    let list = findMatches(heard);
+    alts.slice(1).forEach(a => { const l = findMatches(a); if (l.length && (!list.length || l[0].sc > list[0].sc)) list = l; });
+    $('find').value = heard;
+    showVoice(heard, list);
+  };
+  try{ rec.start(); }catch(err){ setListening(false); }
+};
 
 /* Settings page */
 $('openSettings').onclick = () => { $('mainView').hidden = true; $('settingsView').hidden = false; window.scrollTo(0, 0); };
@@ -709,7 +1153,17 @@ function resume(){
   setTimeout(() => { if (!playing) status('Tap play to resume', false, 600000); }, 3000);
 }
 
-load(); render();
+function showOpts(){
+  $('optNoLists').checked = opts.noLists;
+  $('optSongs').checked = opts.songSearch;
+  ['langEn','langTh'].forEach(id => $(id).setAttribute('aria-pressed', String($(id).dataset.lang === opts.voiceLang)));
+}
+$('optNoLists').onchange = () => { opts.noLists = $('optNoLists').checked; saveOpts(); lastQ = ''; };
+$('optSongs').onchange = () => { opts.songSearch = $('optSongs').checked; saveOpts(); };
+['langEn','langTh'].forEach(id => $(id).onclick = () => { opts.voiceLang = $(id).dataset.lang; saveOpts(); showOpts(); });
+showOpts();
+
+load(); render(); fillSongs();
 if (!playlists.length){ $('mainView').hidden = true; $('settingsView').hidden = false; }
 status('Loading player…');
 </script>
