@@ -262,7 +262,7 @@ async function runSearch(q){
   const base = 'https://www.googleapis.com/youtube/v3/';
   const k = '&key=' + encodeURIComponent(apiKey);
   try{
-    const r = await fetch(base + 'search?part=snippet&type=playlist,video&maxResults=20&q=' + encodeURIComponent(q) + k);
+    const r = await fetch(base + 'search?part=snippet&type=playlist,video&maxResults=50&q=' + encodeURIComponent(q) + k);
     if (seq !== qSeq) return;
     if (!r.ok){
       const quota = r.status === 403;
@@ -292,11 +292,13 @@ async function runSearch(q){
         const v = vInfo[i.id.videoId]; if (!v) return;
         const secs = isoSec(v.contentDetails.duration);
         const ch = parseChapters(v.snippet.description || '');
-        chapCache[v.id] = ch;
+        if (ch.length) chapCache[v.id] = ch; // empty: the player still checks the comments later
         if (secs < 1200 || !ch.length) return;
         rows.push({ type: 'video', id: v.id, title: decode(v.snippet.title), thumb, corner: fmt(secs), detail: 'Video · ' + ch.length + ' chapters · ' + decode(v.snippet.channelTitle) });
       }
     });
+    // Long chapter videos first, then playlists, each keeping YouTube's relevance order
+    rows.sort((x, y) => (x.type === 'video' ? 0 : 1) - (y.type === 'video' ? 0 : 1));
     showResults(rows, rows.length ? '' : 'No matches');
     $('qHint').textContent = 'Finds playlists, and videos over 20 minutes that have chapters.';
   }catch(e){
@@ -367,17 +369,34 @@ $('chapToggle').onclick = () => {
 };
 
 function toSec(t){ return t.split(':').reduce((a,b) => a*60 + Number(b), 0); }
-function parseChapters(desc){
+function parseChapters(desc, loose){
   const out = [];
   desc.split(/\r?\n/).forEach(line => {
     const m = line.match(/(?:^|[\s\[(])((?:\d{1,2}:)?\d{1,2}:\d{2})(?=$|[\s\])\-–—:|.,])/);
     if (!m) return;
     const t = toSec(m[1]);
-    const name = line.replace(m[0], ' ').replace(/^[\s\-–—:|.)\]]+|[\s\-–—:|(\[]+$/g, '').trim() || 'Chapter';
+    const name = line.replace(m[0], ' ').replace(/^[\s\-–—:|.)\]]+|[\s\-–—:|(\[]+$/g, '').replace(/^\d{1,3}[.)]\s+/, '').replace(/\s{2,}/g, ' ').trim() || 'Chapter';
     if (!out.length || t > out[out.length - 1].t) out.push({ t, name });
   });
+  if (loose && out.length && out[0].t <= 15) out[0].t = 0; // comment tracklists sometimes start a few seconds in
   // YouTube's own rule: first chapter at 0:00 and at least three chapters
   return out.length >= 3 && out[0].t === 0 ? out : [];
+}
+
+/* No chapters in the description? Look for a timestamped tracklist in the top comments */
+async function commentTracklist(id){
+  try{
+    const r = await fetch('https://www.googleapis.com/youtube/v3/commentThreads?part=snippet&order=relevance&maxResults=25&textFormat=plainText&videoId=' + encodeURIComponent(id) + '&key=' + encodeURIComponent(apiKey));
+    if (!r.ok) return []; // comments turned off, or limit reached
+    const j = await r.json();
+    let best = [];
+    (j.items || []).forEach(it => {
+      const c = it.snippet && it.snippet.topLevelComment && it.snippet.topLevelComment.snippet;
+      const list = c ? parseChapters(c.textOriginal || c.textDisplay || '', true) : [];
+      if (list.length > best.length) best = list;
+    });
+    return best;
+  }catch(e){ return []; }
 }
 
 async function fetchChapters(id, testOnly){
@@ -388,7 +407,9 @@ async function fetchChapters(id, testOnly){
     if (!r.ok) return 'error';
     const j = await r.json();
     const desc = j.items && j.items[0] ? j.items[0].snippet.description : '';
-    return (chapCache[id] = parseChapters(desc || ''));
+    let list = parseChapters(desc || '');
+    if (!list.length && !testOnly) list = await commentTracklist(id);
+    return (chapCache[id] = list);
   }catch(e){ return 'error'; }
 }
 
