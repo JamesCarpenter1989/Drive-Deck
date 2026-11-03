@@ -269,6 +269,15 @@ $('mic').onclick = () => {
 };
 
 /* Settings page */
+/* Settings opens as a drawer that slides down under the video and gear */
+.drawer{display:grid;grid-template-rows:0fr;opacity:0;transform:translateY(-12px);transition:grid-template-rows .38s cubic-bezier(.2,.8,.2,1),opacity .28s ease,transform .38s cubic-bezier(.2,.8,.2,1)}
+.drawer.open{grid-template-rows:1fr;opacity:1;transform:none}
+.drawer > .settings{min-height:0;overflow:hidden;padding-top:6px}
+.drawer.open > .settings{overflow:visible}
+.gear svg{transition:transform .38s cubic-bezier(.2,.8,.2,1)}
+.gear.open svg{transform:rotate(90deg)}
+.gear.open{border-color:var(--raisedLine);background:var(--raised)}
+@media (prefers-reduced-motion: reduce){ .drawer,.gear svg,.page.anim{transition:none} }
 .settings{display:flex;flex-direction:column;gap:14px}
 .settings > *{flex:none}
 .bar{display:flex;align-items:center;gap:10px;position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:8px;margin-top:-8px}
@@ -360,9 +369,10 @@ select,input{flex:1;min-width:0;width:100%;height:48px;border-radius:12px;border
     </div>
   </div>
 
-  <section class="settings" id="settingsView" hidden>
+  <section class="drawer" id="settingsView" inert>
+   <div class="settings">
     <div class="bar">
-      <button class="back" id="closeSettings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>Back</button>
+      <button class="back" id="closeSettings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>Close</button>
       <h1>Settings</h1>
     </div>
     <div id="status"></div>
@@ -402,6 +412,7 @@ select,input{flex:1;min-width:0;width:100%;height:48px;border-radius:12px;border
         </div>
       </div>
     </div>
+   </div>
   </section>
 
 </main>
@@ -414,6 +425,7 @@ const OKEY = 'drivedeck.options';
 let opts = { noLists: true, songSearch: true, voiceLang: 'en-GB' };
 try{ Object.assign(opts, JSON.parse(localStorage.getItem(OKEY)) || {}); }catch(e){}
 function saveOpts(){ try{ localStorage.setItem(OKEY, JSON.stringify(opts)); }catch(e){} }
+let settingsOpen = false;
 let loadToken = 0, artId = null, playlists = [], player, ready = false, playing = false, shuffle = false, currentId = null;
 
 function load(){ try{ playlists = JSON.parse(localStorage.getItem(KEY)) || []; }catch(e){ playlists = []; } }
@@ -423,7 +435,7 @@ function status(msg, err, ms){
   if (!msg) statusUntil = 0;
   $('status').textContent = msg || ''; $('status').className = err ? 'err' : '';
   // On the player page, show messages in the info line so nothing pushes below the window
-  if (msg && $('settingsView').hidden){ $('meta').textContent = msg; statusUntil = Date.now() + (ms || 4000); }
+  if (msg && !settingsOpen){ $('meta').textContent = msg; statusUntil = Date.now() + (ms || 4000); }
 }
 
 function parseLink(url){
@@ -885,7 +897,7 @@ function fit(){
   document.documentElement.style.setProperty('--h', h + 'px');
 }
 function layout(){ fit(); const w = $('carousel').clientWidth + 16; place(page, 0); place(1 - page, w); }
-function showDots(){}
+function showDots(){ if (page === 0 && settingsOpen) closeSettings(); } // swiping back to the player closes settings
 function go(dir){ // dir -1: content moves left (swipe right-to-left), +1: moves right
   const w = $('carousel').clientWidth + 16, other = 1 - page;
   place(other, -dir * w); // start the incoming page on the side it enters from
@@ -897,8 +909,9 @@ function go(dir){ // dir -1: content moves left (swipe right-to-left), +1: moves
 (() => {
   const c = $('carousel');
   let x0 = 0, y0 = 0, dx = 0, drag = false, track = false;
-  c.addEventListener('touchstart', e => { if (e.target.closest('#found, .findRow')){ track = false; return; } const t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; dx = 0; drag = false; track = true; }, { passive: true });
-  c.addEventListener('touchmove', e => {
+  const skip = '#settingsView, #found, .findRow, input, select, textarea';
+  document.addEventListener('touchstart', e => { if (e.target.closest(skip)){ track = false; return; } const t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; dx = 0; drag = false; track = true; }, { passive: true });
+  document.addEventListener('touchmove', e => {
     if (!track) return;
     const t = e.touches[0], ddx = t.clientX - x0, ddy = t.clientY - y0;
     if (!drag){
@@ -910,7 +923,7 @@ function go(dir){ // dir -1: content moves left (swipe right-to-left), +1: moves
     const w = c.clientWidth + 16;
     place(page, dx); place(1 - page, dx + (dx < 0 ? w : -w));
   }, { passive: true });
-  c.addEventListener('touchend', () => {
+  document.addEventListener('touchend', () => {
     if (!drag){ track = false; return; }
     const w = c.clientWidth + 16;
     if (Math.abs(dx) > c.clientWidth * 0.2){
@@ -1109,8 +1122,22 @@ $('mic').onclick = () => {
 };
 
 /* Settings page */
-$('openSettings').onclick = () => { $('mainView').hidden = true; $('settingsView').hidden = false; window.scrollTo(0, 0); };
-$('closeSettings').onclick = () => { $('settingsView').hidden = true; $('mainView').hidden = false; layout(); };
+function openSettings(){
+  settingsOpen = true;
+  const d = $('settingsView');
+  d.inert = false; d.classList.add('open');
+  $('openSettings').classList.add('open'); $('openSettings').setAttribute('aria-expanded', 'true');
+}
+function closeSettings(){
+  settingsOpen = false;
+  const d = $('settingsView');
+  d.classList.remove('open'); d.inert = true;
+  $('openSettings').classList.remove('open'); $('openSettings').setAttribute('aria-expanded', 'false');
+  if (document.activeElement && d.contains(document.activeElement)) document.activeElement.blur();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+$('openSettings').onclick = () => settingsOpen ? closeSettings() : openSettings();
+$('closeSettings').onclick = closeSettings;
 
 /* Resume: remember where playback was and carry on from there next time */
 const RKEY = 'drivedeck.resume';
@@ -1166,7 +1193,7 @@ $('optSongs').onchange = () => { opts.songSearch = $('optSongs').checked; saveOp
 showOpts();
 
 load(); render(); fillSongs();
-if (!playlists.length){ $('mainView').hidden = true; $('settingsView').hidden = false; }
+if (!playlists.length) openSettings();
 status('Loading player…');
 </script>
 </body>
