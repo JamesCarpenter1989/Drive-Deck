@@ -17,7 +17,10 @@
 html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font);-webkit-tap-highlight-color:transparent}
 body{padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));padding-block:max(12px,env(safe-area-inset-top,0px)) 12px}
 .deck{display:flex;flex-direction:column;gap:12px;max-width:560px;margin:0 auto}
-.now{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:6px}
+.now{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;gap:14px;align-items:center}
+.now .text{display:flex;flex-direction:column;gap:6px;min-width:0;flex:1}
+.art{width:104px;height:104px;flex:none;border-radius:10px;background:var(--line);object-fit:cover}
+.art[src=""]{visibility:hidden}
 .label{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 #title{font-size:20px;font-weight:650;line-height:1.25;text-wrap:balance;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.5em}
 #meta{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
@@ -49,9 +52,12 @@ summary{cursor:pointer;padding:12px 0;font-weight:600}
 <body>
 <main class="deck">
   <section class="now" aria-live="polite">
-    <div class="label">Now playing</div>
-    <div id="title">Add a playlist to start</div>
-    <div id="meta">–</div>
+    <img class="art" id="art" src="" alt="">
+    <div class="text">
+      <div class="label">Now playing</div>
+      <div id="title">Add a playlist to start</div>
+      <div id="meta">–</div>
+    </div>
   </section>
 
   <div class="controls">
@@ -87,7 +93,7 @@ summary{cursor:pointer;padding:12px 0;font-weight:600}
 <script>
 const $ = id => document.getElementById(id);
 const KEY = 'drivedeck.playlists';
-let playlists = [], player, ready = false, playing = false, shuffle = false, currentId = null;
+let artId = null, playlists = [], player, ready = false, playing = false, shuffle = false, currentId = null;
 
 function load(){ try{ playlists = JSON.parse(localStorage.getItem(KEY)) || []; }catch(e){ playlists = []; } }
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(playlists)); }catch(e){} }
@@ -178,6 +184,11 @@ function updateNow(){
   if (!ready) return;
   const d = player.getVideoData ? player.getVideoData() : null;
   if (d && d.title) $('title').textContent = d.title;
+  if (d && d.video_id && d.video_id !== artId){
+    artId = d.video_id;
+    $('art').src = 'https://i.ytimg.com/vi/' + artId + '/mqdefault.jpg';
+    syncSession();
+  }
   const list = player.getPlaylist && player.getPlaylist();
   const idx = player.getPlaylistIndex && player.getPlaylistIndex();
   const p = playlists[$('pick').value];
@@ -245,7 +256,8 @@ function syncSession(){
   if (!('mediaSession' in navigator) || !ready) return;
   const d = player.getVideoData ? player.getVideoData() : {};
   try{
-    navigator.mediaSession.metadata = new MediaMetadata({ title: d.title || 'Drive Deck', artist: d.author || '' });
+    const art = d.video_id ? [{ src: 'https://i.ytimg.com/vi/' + d.video_id + '/hqdefault.jpg', sizes: '480x360', type: 'image/jpeg' }] : [];
+    navigator.mediaSession.metadata = new MediaMetadata({ title: d.title || 'Drive Deck', artist: d.author || '', artwork: art });
     navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
   }catch(e){}
 }
