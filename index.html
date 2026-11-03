@@ -34,20 +34,20 @@ select:focus{border-color:var(--line)}
 
 /* Page 1: player */
 .p1{display:flex;flex-direction:column;gap:8px}
-.now{height:calc(var(--h) - 132px);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:7px;display:flex;gap:10px;align-items:center}
-.art{width:calc(var(--h) - 148px);height:calc(var(--h) - 148px);flex:none;border-radius:8px;background:var(--line);object-fit:cover}
+.now{height:calc(var(--h) - 104px);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:7px;display:flex;gap:10px;align-items:center}
+.art{width:calc(var(--h) - 118px);height:calc(var(--h) - 118px);flex:none;border-radius:8px;background:var(--line);object-fit:cover}
 .art[src=""]{visibility:hidden}
 .text{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
 .text div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #title{font-size:17px;font-weight:650;line-height:1.25}
-#channel{font-size:13px;color:var(--soft)}
+#sub{font-size:13px;color:var(--soft)}
 #meta{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
 .controls{display:grid;grid-template-columns:1fr 1.3fr 1fr;gap:8px}
-.controls button{height:62px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--fg);display:grid;place-items:center;cursor:pointer}
+.controls button{height:50px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--fg);display:grid;place-items:center;cursor:pointer}
 .controls button:active{transform:scale(.97)}
 #play{background:var(--accent);border-color:var(--accent);color:#141414}
-.controls svg{width:34px;height:34px;fill:currentColor}
-#pick{height:46px;padding-right:40px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a979d' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:20px}
+.controls svg{width:28px;height:28px;fill:currentColor}
+#pick{height:38px;font-size:15px;padding-right:40px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a979d' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:20px}
 
 /* Page 2: video and settings button, same height as page 1 */
 .p2{display:flex;gap:10px}
@@ -88,7 +88,7 @@ select,input{flex:1;min-width:0;width:100%;height:48px;border-radius:12px;border
           <img class="art" id="art" src="" alt="">
           <div class="text">
             <div id="title">Add a playlist in settings</div>
-            <div id="channel"></div>
+            <div id="sub"></div>
             <div id="meta">–</div>
           </div>
         </div>
@@ -142,7 +142,7 @@ let loadToken = 0, artId = null, playlists = [], player, ready = false, playing 
 
 function load(){ try{ playlists = JSON.parse(localStorage.getItem(KEY)) || []; }catch(e){ playlists = []; } }
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(playlists)); }catch(e){} }
-let statusUntil = 0;
+let statusUntil = 0, lastShown = '';
 function status(msg, err){
   $('status').textContent = msg || ''; $('status').className = err ? 'err' : '';
   // On the player page, show messages in the info line so nothing pushes below the window
@@ -299,8 +299,6 @@ function onState(e){
 function updateNow(){
   if (!ready) return;
   const d = player.getVideoData ? player.getVideoData() : null;
-  if (d && d.title) $('title').textContent = d.title;
-  if (d) $('channel').textContent = d.author || '';
   if (d && d.video_id && d.video_id !== artId){
     artId = d.video_id;
     $('art').src = 'https://i.ytimg.com/vi/' + artId + '/mqdefault.jpg';
@@ -310,10 +308,19 @@ function updateNow(){
   const list = player.getPlaylist && player.getPlaylist();
   const idx = player.getPlaylistIndex && player.getPlaylistIndex();
   const p = playlists[$('pick').value];
-  let meta = (p ? p.name : '') + (list && list.length ? ' · ' + (idx + 1) + ' of ' + list.length : '');
-  const ci = chapterIndex();
-  if (useChapters() && ci >= 0) meta = 'Ch ' + (ci + 1) + '/' + chapters.length + ' · ' + chapters[ci].name;
-  if (Date.now() > statusUntil) $('meta').textContent = meta;
+  const ci = chapterIndex(), vt = (d && d.title) || '';
+  let title, sub, meta;
+  if (useChapters() && ci >= 0){
+    // Chapter title on top, video title underneath, chapter position below
+    title = chapters[ci].name; sub = vt; meta = (ci + 1) + '/' + chapters.length;
+  } else {
+    title = vt; sub = p ? p.name : ''; meta = list && list.length ? (idx + 1) + '/' + list.length : '';
+  }
+  if (title) $('title').textContent = title;
+  $('sub').textContent = sub;
+  if (Date.now() > statusUntil) $('meta').textContent = meta || '–';
+  const key = title + '|' + vt;
+  if (key !== lastShown){ lastShown = key; syncSession(); }
 }
 setInterval(updateNow, 1000);
 
@@ -406,7 +413,8 @@ function syncSession(){
   const d = player.getVideoData ? player.getVideoData() : {};
   try{
     const art = d.video_id ? [{ src: 'https://i.ytimg.com/vi/' + d.video_id + '/hqdefault.jpg', sizes: '480x360', type: 'image/jpeg' }] : [];
-    navigator.mediaSession.metadata = new MediaMetadata({ title: d.title || 'Drive Deck', artist: d.author || '', artwork: art });
+    const ci = chapterIndex(), chap = useChapters() && ci >= 0 ? chapters[ci].name : '';
+    navigator.mediaSession.metadata = new MediaMetadata({ title: chap || d.title || 'Drive Deck', artist: chap ? (d.title || '') : (d.author || ''), artwork: art });
     navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
   }catch(e){}
 }
