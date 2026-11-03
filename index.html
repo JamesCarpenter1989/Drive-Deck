@@ -879,7 +879,9 @@ function fit(){
   if (!c.offsetParent) return;
   const top = c.getBoundingClientRect().top + window.scrollY;
   const bottom = parseFloat(getComputedStyle(document.body).paddingBottom) || 10;
-  const h = Math.max(200, Math.floor(window.innerHeight - top - bottom));
+  // Player pages stay compact at the top: fit a small split-screen window, but never grow past MAX_H
+  const MAX_H = 225;
+  const h = Math.max(200, Math.min(MAX_H, Math.floor(window.innerHeight - top - bottom)));
   document.documentElement.style.setProperty('--h', h + 'px');
 }
 function layout(){ fit(); const w = $('carousel').clientWidth + 16; place(page, 0); place(1 - page, w); }
