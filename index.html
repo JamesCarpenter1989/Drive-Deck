@@ -34,16 +34,50 @@ select:focus{border-color:var(--line)}
 
 /* Page 1: player */
 .p1{display:flex;flex-direction:column;gap:8px}
-.findRow{display:flex;gap:8px;height:38px;flex:none}
-.findBox{flex:1 1 0;min-width:0;display:flex;align-items:center;gap:8px;border-radius:12px;border:1px solid var(--line);background:var(--panel);padding:0 12px;color:var(--muted)}
-.findBox:focus-within{border-color:#5b666b}
+/* Song card: cover, song + number, video title, inline time bar; magnifier strip on the right */
+.now{flex:1;min-height:0;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:6px 0 6px 6px;display:flex;gap:10px;align-items:center}
+.art{width:calc(var(--h) - 108px);height:calc(var(--h) - 108px);flex:none;border-radius:8px;background:var(--line);object-fit:cover;transition:opacity .3s}
+.art[src=""]{visibility:hidden}
+.text{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:6px}
+.line1{display:flex;align-items:baseline;gap:6px;min-width:0}
+#title{font-size:16px;font-weight:650;line-height:1.25;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#meta{flex:none;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+#sub{font-size:12px;color:var(--soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.time{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.progress{flex:1;height:3px;border-radius:2px;background:var(--track);overflow:hidden}
+#fill{height:100%;width:0;border-radius:2px;background:var(--accent)}
+.lens{width:36px;align-self:stretch;flex:none;border:0;border-left:1px solid var(--line);background:none;color:var(--muted);display:grid;place-items:center;cursor:pointer;margin:-6px 0}
+.lens svg{width:17px;height:17px}
+/* Advert playing: tag, waiting time bar, dimmed cover */
+#adTag{flex:none;align-self:center;font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--bg);background:var(--soft);padding:2px 6px;border-radius:4px}
+.now.ad .art{opacity:.45}
+.now.ad #title{font-size:14px;font-weight:600}
+.now.ad .progress{background:repeating-linear-gradient(90deg,var(--raisedLine) 0 6px,transparent 6px 10px)}
+.now.ad #fill{visibility:hidden}
+.now.ad #meta{display:none}
+/* Four square buttons: back, play/pause, mic, forward */
+.controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;height:86px;flex:none}
+.controls button{height:100%;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--fg);display:grid;place-items:center;cursor:pointer}
+.controls button:active{transform:scale(.97)}
+#play,#mic{background:var(--raised);border-color:var(--raisedLine)}
+.controls svg{width:30px;height:30px;fill:currentColor}
+#mic svg{width:28px;height:28px;fill:none}
+#mic.on{background:var(--accent);border-color:var(--accent);color:var(--bg)}
+/* Search drawer covers the whole player area */
+.finder{position:absolute;inset:0;z-index:5;background:var(--panel);border:1px solid var(--raisedLine);border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:6px;opacity:0;visibility:hidden;transform:translateY(10px);transition:opacity .22s ease,transform .3s cubic-bezier(.2,.8,.2,1),visibility 0s linear .3s}
+.finder.open{opacity:1;visibility:visible;transform:none;transition:opacity .22s ease,transform .3s cubic-bezier(.2,.8,.2,1),visibility 0s}
+.fhead{display:flex;gap:6px;height:40px;flex:none}
+.findBox{flex:1 1 0;min-width:0;display:flex;align-items:center;gap:8px;border-radius:10px;border:1px solid #5b666b;background:var(--bg);padding:0 10px;color:var(--muted)}
 .findBox svg{width:16px;height:16px;flex:none}
 .findBox input{flex:1;min-width:0;height:100%;border:0;background:none;padding:0;outline:none;font-size:15px}
-.findBox input::-webkit-search-cancel-button{filter:grayscale(1)}
-.mic{flex:0 0 35%;border-radius:12px;border:1px solid var(--raisedLine);background:var(--raised);color:var(--fg);display:grid;place-items:center;cursor:pointer}
-.mic svg{width:20px;height:20px}
-.mic.on{background:var(--accent);border-color:var(--accent);color:var(--bg)}
-.found{position:absolute;left:0;right:0;top:0;bottom:46px;z-index:4;display:flex;flex-direction:column;justify-content:flex-end;gap:6px;background:rgba(15,18,20,.82);border-radius:12px}
+.findBox input::-webkit-search-cancel-button{display:none}
+.fclose{width:40px;flex:none;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--soft);display:grid;place-items:center;cursor:pointer}
+.fclose svg{width:18px;height:18px}
+.fresults{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column}
+.fresults .fRow{height:48px;padding:0 4px}
+.fresults .fThumb{width:56px;height:32px}
+.fresults .empty{border:0;background:none;padding:10px 4px}
+.found{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;justify-content:center;gap:6px;background:rgba(15,18,20,.94);border-radius:12px}
 .list-results{background:var(--panel);border:1px solid var(--raisedLine);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
 .fRow{height:54px;flex:none;border:0;border-bottom:1px solid var(--line);background:none;color:var(--fg);font:inherit;text-align:left;padding:0 10px;display:flex;align-items:center;gap:10px;cursor:pointer}
 .fRow:last-child{border-bottom:0}
@@ -61,24 +95,11 @@ select:focus{border-color:var(--line)}
 .vMore{display:flex;gap:6px}
 .vMore button{flex:1;min-width:0;height:44px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--fg);font:inherit;font-size:13px;padding:0 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
 .vMore .cancel{flex:0 0 70px;color:var(--soft)}
-.now{height:calc(var(--h) - 104px);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:7px;display:flex;gap:12px;align-items:center}
-.art{width:calc(var(--h) - 118px);height:calc(var(--h) - 118px);flex:none;border-radius:8px;background:var(--line);object-fit:cover}
-.art[src=""]{visibility:hidden}
-.text{display:flex;flex-direction:column;justify-content:space-between;gap:8px;min-width:0;flex:1;align-self:stretch;padding:8px 4px 6px 0}
-.info{display:flex;flex-direction:column;gap:3px;min-width:0}
-.info div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.time{display:flex;flex-direction:column;gap:6px}
-.progress{height:4px;border-radius:2px;background:var(--track);overflow:hidden}
-#fill{height:100%;width:0;border-radius:2px;background:var(--accent)}
-.times{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
-#title{font-size:17px;font-weight:650;line-height:1.25}
-#sub{font-size:13px;color:var(--soft)}
-#meta{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
-.controls{display:grid;grid-template-columns:1fr 1.3fr 1fr;gap:8px}
-.controls button{height:50px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--fg);display:grid;place-items:center;cursor:pointer}
-.controls button:active{transform:scale(.97)}
-#play{background:var(--raised);border-color:var(--raisedLine);color:var(--fg)}
-.controls svg{width:28px;height:28px;fill:currentColor}
+.listen{background:var(--panel);border:1px solid var(--raisedLine);border-radius:12px;padding:14px;display:flex;align-items:center;gap:12px}
+.listen .txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.listen b{font-size:15px}
+.listen small{font-size:14px;color:var(--soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.listen button{height:44px;padding:0 16px;border-radius:10px;border:1px solid var(--raisedLine);background:var(--raised);color:var(--fg);font:inherit;cursor:pointer}
 #pick{height:38px;font-size:15px;padding-right:40px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a979d' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:20px}
 
 /* Page 2: video and settings button, same height as page 1 */
@@ -159,33 +180,29 @@ select,input{flex:1;min-width:0;width:100%;height:48px;border-radius:12px;border
   <div id="mainView">
     <div class="carousel" id="carousel">
       <section class="page p1" id="page1" aria-label="Player">
-        <div class="now" aria-live="polite">
+        <div class="now" id="now" aria-live="polite">
           <img class="art" id="art" src="" alt="">
           <div class="text">
-            <div class="info">
-              <div id="title">Add a playlist in settings</div>
-              <div id="sub"></div>
-              <div id="meta">–</div>
-            </div>
-            <div class="time" aria-hidden="true">
-              <div class="progress"><div id="fill"></div></div>
-              <div class="times"><span id="elapsed">0:00</span><span id="length">0:00</span></div>
-            </div>
+            <div class="line1"><span id="adTag" hidden>ADVERT</span><div id="title">Add a playlist in settings</div><span id="meta">–</span></div>
+            <div id="sub"></div>
+            <div class="time" aria-hidden="true"><span id="elapsed">0:00</span><div class="progress"><div id="fill"></div></div><span id="length">0:00</span></div>
           </div>
+          <button class="lens" id="openFind" aria-label="Search your list"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>
         </div>
         <div class="controls">
           <button id="prev" aria-label="Previous"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zM9.5 12 18 6v12z"/></svg></button>
           <button id="play" aria-label="Play"><svg id="playIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
+          <button id="mic" aria-label="Voice search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
           <button id="next" aria-label="Next"><svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z"/></svg></button>
         </div>
         <select id="pick" aria-hidden="true" tabindex="-1" hidden></select>
         <div class="found" id="found" hidden></div>
-        <div class="findRow">
-          <label class="findBox" for="find">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-            <input id="find" type="search" placeholder="Find in your list" autocomplete="off" spellcheck="false" enterkeyhint="search">
-          </label>
-          <button class="mic" id="mic" aria-label="Voice search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+        <div class="finder" id="finder" inert>
+          <div class="fhead">
+            <label class="findBox" for="find"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="find" type="search" placeholder="Find in your list" autocomplete="off" spellcheck="false" enterkeyhint="search"></label>
+            <button class="fclose" id="closeFind" aria-label="Close search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+          </div>
+          <div class="fresults" id="sResults"></div>
         </div>
       </section>
       <section class="page p2" id="page2" aria-label="Video">
@@ -263,7 +280,7 @@ function status(msg, err, ms){
   if (!msg) statusUntil = 0;
   $('status').textContent = msg || ''; $('status').className = err ? 'err' : '';
   // On the player page, show messages in the info line so nothing pushes below the window
-  if (msg && !settingsOpen){ $('meta').textContent = msg; statusUntil = Date.now() + (ms || 4000); }
+  if (msg && !settingsOpen){ $('sub').textContent = msg; statusUntil = Date.now() + (ms || 4000); }
 }
 
 function parseLink(url){
@@ -554,10 +571,38 @@ window.onYouTubeIframeAPIReady = () => {
   });
 };
 
+/* Advert indicator. YouTube doesn't tell the page when an ad plays, so this is worked out:
+   music was asked for, the player is active, but the song's own clock hasn't moved for 3 seconds. */
+let wantPlay = false, adActive = false, stateSeen = false, ytState = -1, lastT = -1, lastMove = 0;
+function markWant(){ wantPlay = true; stateSeen = false; lastMove = Date.now(); }
+function setPlayIcon(){
+  const on = playing || adActive;
+  $('playIcon').innerHTML = on ? '<path d="M7 5h4v14H7zM13 5h4v14h-4z"/>' : '<path d="M8 5v14l11-7z"/>';
+  $('play').setAttribute('aria-label', on ? 'Pause' : 'Play');
+}
+function setAd(on){
+  if (on === adActive) return;
+  adActive = on;
+  $('now').classList.toggle('ad', on);
+  $('adTag').hidden = !on;
+  setPlayIcon(); updateNow();
+}
+function checkAd(){
+  if (!ready || !player.getCurrentTime) return;
+  const t = player.getCurrentTime() || 0;
+  if (Math.abs(t - lastT) > 0.05){ lastT = t; if (ytState === 1) lastMove = Date.now(); }
+  const stuck = wantPlay && stateSeen && ytState !== 2 && ytState !== 0 && Date.now() - lastMove > 3000;
+  setAd(stuck);
+}
+setInterval(checkAd, 500);
+
 function onState(e){
+  ytState = e.data;
+  if (e.data === 1 || e.data === 3) stateSeen = true;
+  if (e.data === 1){ wantPlay = true; lastMove = Date.now(); }
+  if (e.data === 2){ wantPlay = false; setAd(false); }
   playing = e.data === YT.PlayerState.PLAYING || e.data === YT.PlayerState.BUFFERING;
-  $('playIcon').innerHTML = playing ? '<path d="M7 5h4v14H7zM13 5h4v14h-4z"/>' : '<path d="M8 5v14l11-7z"/>';
-  $('play').setAttribute('aria-label', playing ? 'Pause' : 'Play');
+  setPlayIcon();
   if (e.data === YT.PlayerState.PLAYING){ status(''); reclaimButtons(); }
   updateNow();
   syncSession();
@@ -583,9 +628,10 @@ function updateNow(){
   } else {
     title = vt; sub = p ? p.name : ''; meta = list && list.length ? (idx + 1) + '/' + list.length : '';
   }
+  if (adActive){ sub = title ? 'Up next: ' + title : 'Your music starts next'; title = 'Music starts next'; }
   if (title) $('title').textContent = title;
-  $('sub').textContent = sub;
-  if (Date.now() > statusUntil) $('meta').textContent = meta || '–';
+  if (Date.now() > statusUntil) $('sub').textContent = sub;
+  $('meta').textContent = meta || '';
   const key = title + '|' + vt;
   if (key !== lastShown){ lastShown = key; syncSession(); }
 }
@@ -618,6 +664,7 @@ function startSelected(startAt){
   if (!p){ status('Add a playlist in settings first.', true); return; }
   const token = ++loadToken;
   currentId = p.id;
+  markWant();
   chapters = []; chapVideo = null; artId = null;
   $('title').textContent = 'Loading ' + p.name + '…';
   $('art').src = '';
@@ -648,7 +695,8 @@ function togglePlay(){
   keepAwake(); startSilent();
   const p = playlists[$('pick').value];
   if (!currentId || (p && p.id !== currentId)) return startSelected();
-  playing ? player.pauseVideo() : player.playVideo();
+  if (playing || adActive){ wantPlay = false; setAd(false); player.pauseVideo(); }
+  else { markWant(); player.playVideo(); }
 }
 function next(){
   if (!ready) return;
@@ -738,7 +786,7 @@ function fit(){
   const top = c.getBoundingClientRect().top + window.scrollY;
   const bottom = parseFloat(getComputedStyle(document.body).paddingBottom) || 10;
   // Player pages stay compact at the top: fit a small split-screen window, but never grow past MAX_H
-  const MAX_H = 225;
+  const MAX_H = 200; // YouTube's player can't go below 200, so both pages sit at 200
   const h = Math.max(200, Math.min(MAX_H, Math.floor(window.innerHeight - top - bottom)));
   document.documentElement.style.setProperty('--h', h + 'px');
 }
@@ -755,7 +803,7 @@ function go(dir){ // dir -1: content moves left (swipe right-to-left), +1: moves
 (() => {
   const c = $('carousel');
   let x0 = 0, y0 = 0, dx = 0, drag = false, track = false;
-  const skip = '#settingsView, #found'; // swipes work everywhere else, including the search bar
+  const skip = '#settingsView, #found, #finder'; // swipes work everywhere else, including the search bar
   document.addEventListener('touchstart', e => { if (e.target.closest(skip)){ track = false; return; } const t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; dx = 0; drag = false; track = true; }, { passive: true });
   document.addEventListener('touchmove', e => {
     if (!track) return;
@@ -840,12 +888,11 @@ function findMatches(text){
   return out.sort((a, b) => b.sc - a.sc);
 }
 function playMatch(m){
-  closeFound();
-  $('find').value = ''; $('find').blur();
+  closeFound(); closeFinder();
   keepAwake(); startSilent();
   $('pick').value = m.i;
   const e = playlists[m.i];
-  if (e.id === currentId && m.at !== undefined && ready){ player.seekTo(m.at, true); player.playVideo(); return; }
+  if (e.id === currentId && m.at !== undefined && ready){ markWant(); player.seekTo(m.at, true); player.playVideo(); return; }
   currentId = null;
   startSelected(m.at);
 }
@@ -862,29 +909,51 @@ function rowFor(m){
   b.onclick = () => playMatch(m);
   return b;
 }
-function maxRows(){ return Math.max(1, Math.floor(($('carousel').clientHeight - 48) / 54)); }
 function showTyped(list){
-  const f = $('found'); f.innerHTML = '';
-  if (!list.length){ const e = document.createElement('div'); e.className = 'empty'; e.textContent = 'Nothing in your list matches that.'; f.appendChild(e); f.hidden = false; return; }
-  const box = document.createElement('div'); box.className = 'list-results';
-  list.slice(0, maxRows()).forEach(m => box.appendChild(rowFor(m)));
-  f.appendChild(box); f.hidden = false;
+  const r = $('sResults'); r.innerHTML = '';
+  if (!list.length){ const e = document.createElement('div'); e.className = 'empty'; e.textContent = 'Nothing in your list matches that.'; r.appendChild(e); return; }
+  list.slice(0, 12).forEach(m => r.appendChild(rowFor(m)));
 }
+/* Search drawer: the magnifier opens it over the player */
+function openFinder(){
+  closeFound();
+  const f = $('finder'); f.inert = false; f.classList.add('open');
+  $('find').value = ''; $('sResults').innerHTML = '';
+  setTimeout(() => $('find').focus(), 60);
+}
+function closeFinder(){
+  const f = $('finder'); f.classList.remove('open'); f.inert = true;
+  $('find').value = ''; $('find').blur(); $('sResults').innerHTML = '';
+}
+$('openFind').onclick = openFinder;
+$('closeFind').onclick = closeFinder;
 function closeFound(){ clearInterval(countdown); $('found').hidden = true; $('found').innerHTML = ''; }
 
 $('find').addEventListener('input', () => {
   const v = $('find').value.trim();
-  if (!v){ closeFound(); return; }
+  if (!v){ $('sResults').innerHTML = ''; return; }
   showTyped(findMatches(v));
 });
 $('find').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); const m = findMatches($('find').value)[0]; if (m) playMatch(m); } });
 document.addEventListener('pointerdown', e => {
   if ($('found').hidden) return;
-  if (e.target.closest('#found, .findRow')) return;
-  closeFound(); $('find').value = ''; $('find').blur();
+  if (e.target.closest('#found, #mic')) return;
+  closeFound();
 });
 
 /* Voice search: Chrome's built-in speech recognition */
+let heardSoFar = '', voiceStopped = false;
+function showListening(txt){
+  const f = $('found'); f.innerHTML = '';
+  const box = document.createElement('div'); box.className = 'listen';
+  const t = document.createElement('div'); t.className = 'txt';
+  const b = document.createElement('b'); b.textContent = 'Listening…';
+  const sm = document.createElement('small'); sm.textContent = txt ? '“' + txt + '”' : 'Say a playlist or song name';
+  t.append(b, sm);
+  const stop = document.createElement('button'); stop.textContent = 'Stop';
+  stop.onclick = () => { voiceStopped = true; if (rec) rec.abort(); closeFound(); };
+  box.append(t, stop); f.appendChild(box); f.hidden = false;
+}
 let rec = null, listening = false, countdown = null, volBefore = null;
 const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
 function setListening(on){
@@ -918,7 +987,7 @@ function showVoice(heard, list){
   const more = document.createElement('div'); more.className = 'vMore';
   list.slice(1, 3).forEach(m => { const b = document.createElement('button'); b.textContent = m.title; b.onclick = () => playMatch(m); more.appendChild(b); });
   const cancel = document.createElement('button'); cancel.className = 'cancel'; cancel.textContent = 'Cancel';
-  cancel.onclick = () => { closeFound(); $('find').value = ''; };
+  cancel.onclick = () => closeFound();
   more.appendChild(cancel);
   f.append(card, more); f.hidden = false;
   // Plays the best match after 3 seconds, so nothing needs tapping while driving
@@ -940,14 +1009,15 @@ $('mic').onclick = () => {
   rec.interimResults = true;
   rec.maxAlternatives = 3;
   let finalText = '', alts = [];
-  rec.onstart = () => { setListening(true); $('find').value = ''; $('find').placeholder = 'Listening…'; };
+  voiceStopped = false;
+  rec.onstart = () => { setListening(true); closeFinder(); showListening(''); };
   rec.onresult = e => {
     let txt = '';
     for (let i = 0; i < e.results.length; i++){
       txt += e.results[i][0].transcript;
       if (e.results[i].isFinal){ finalText = txt; alts = Array.from(e.results[i]).map(a => a.transcript); }
     }
-    $('find').value = txt;
+    heardSoFar = txt; showListening(txt);
   };
   rec.onerror = e => {
     const msg = { 'not-allowed': 'Allow the microphone for Drive Deck to use voice search.', 'no-speech': 'Did not hear anything. Tap the mic and try again.', 'network': 'Voice search needs a connection.' }[e.error];
@@ -955,13 +1025,12 @@ $('mic').onclick = () => {
   };
   rec.onend = () => {
     setListening(false);
-    $('find').placeholder = 'Find in your list';
-    const heard = (finalText || $('find').value).trim();
-    if (!heard){ $('find').value = ''; return; }
+    const heard = (finalText || heardSoFar).trim();
+    heardSoFar = '';
+    if (!heard || voiceStopped){ closeFound(); return; }
     // Try each version Chrome heard and keep whichever matches best
     let list = findMatches(heard);
     alts.slice(1).forEach(a => { const l = findMatches(a); if (l.length && (!list.length || l[0].sc > list[0].sc)) list = l; });
-    $('find').value = heard;
     showVoice(heard, list);
   };
   try{ rec.start(); }catch(err){ setListening(false); }
@@ -1016,6 +1085,7 @@ function resume(){
   let index = spot.index, start = Math.floor(spot.time);
   if (nearEnd){ index += 1; start = 0; }
   status('Resuming…');
+  markWant();
   keepAwake(); startSilent();
   if (p.type === 'list'){
     player.loadPlaylist({ list: p.id, listType: 'playlist', index, startSeconds: start });
@@ -1024,7 +1094,8 @@ function resume(){
     player.loadVideoById({ videoId: p.id, startSeconds: nearEnd ? 0 : start });
   }
   // If Chrome blocked autoplay, everything is loaded at the right spot and one tap starts it
-  setTimeout(() => { if (!playing) status('Tap play to resume', false, 600000); }, 3000);
+  // Only when nothing has started at all; if an advert is playing, the advert indicator shows instead
+  setTimeout(() => { if (!playing && !stateSeen){ wantPlay = false; status('Tap play to resume', false, 600000); } }, 3000);
 }
 
 function showOpts(){
