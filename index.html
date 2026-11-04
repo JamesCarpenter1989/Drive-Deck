@@ -123,7 +123,7 @@ select:focus{border-color:var(--line)}
 .drawer{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:0fr;min-width:0;opacity:0;transform:translateY(-12px);transition:grid-template-rows .38s cubic-bezier(.2,.8,.2,1),opacity .28s ease,transform .38s cubic-bezier(.2,.8,.2,1)}
 .drawer.open{grid-template-rows:1fr;opacity:1;transform:none}
 .drawer > .settings{min-height:0;min-width:0;overflow:hidden}
-.drawer.open > .settings{overflow:visible;padding-top:6px}
+.drawer.open > .settings{overflow:visible;padding-top:56px}
 .gear svg{transition:transform .38s cubic-bezier(.2,.8,.2,1)}
 .gear.open svg{transform:rotate(90deg)}
 .gear.open{border-color:var(--raisedLine);background:var(--raised)}
@@ -161,10 +161,10 @@ select,input{flex:1;min-width:0;width:100%;height:48px;border-radius:12px;border
 #qState{font-size:12px;white-space:nowrap}
 .results{display:flex;flex-direction:column}
 .results:empty{display:none}
-.res{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line)}
+.res{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line);min-width:0}
 .thumb{width:88px;height:50px;flex:none;border-radius:6px;background:var(--raised) center/cover no-repeat;position:relative}
 .thumb span{position:absolute;right:4px;bottom:4px;font-size:10px;background:var(--bg);color:var(--accent);padding:1px 4px;border-radius:3px;font-variant-numeric:tabular-nums}
-.res .info{flex:1}
+.res .info{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
 .res .t{font-size:14px;font-weight:600}
 .res .d{font-size:12px;color:var(--muted)}
 .res .t,.res .d{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -815,7 +815,7 @@ function go(dir){ // dir -1: content moves left (swipe right-to-left), +1: moves
 (() => {
   const c = $('carousel');
   let x0 = 0, y0 = 0, dx = 0, drag = false, track = false;
-  const skip = '#settingsView, #found, #finder'; // swipes work everywhere else, including the search bar
+  const skip = '#found, #finder, input[type=range], input[type=search], #q, #apiKey'; // swipes work everywhere else, Settings included
   document.addEventListener('touchstart', e => { if (e.target.closest(skip)){ track = false; return; } const t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; dx = 0; drag = false; track = true; }, { passive: true });
   document.addEventListener('touchmove', e => {
     if (!track) return;
