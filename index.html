@@ -21,7 +21,7 @@
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font);-webkit-tap-highlight-color:transparent}
-body{padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));padding-block:max(10px,env(safe-area-inset-top,0px)) 10px}
+body{padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));padding-block:calc(max(10px,env(safe-area-inset-top,0px)) + 5px) 10px}
 .app{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:8px}
 button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 select{outline:none;-webkit-appearance:none;appearance:none}
@@ -49,9 +49,9 @@ select:focus{border-color:var(--line)}
 .lens{width:32px;height:32px;flex:none;border-radius:9px;border:1px solid var(--tileLine);background:var(--bg);color:var(--muted);display:grid;place-items:center;cursor:pointer}
 .lens svg{width:15px;height:15px}
 .time{display:flex;flex-direction:column;gap:5px}
-.progress{height:8px;border-radius:4px;background:var(--track);position:relative;margin:0 7px}
+.progress{height:8px;border-radius:4px;background:var(--track);position:relative}
 #fill{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:4px;background:var(--accent)}
-#knob{position:absolute;top:-3px;left:-7px;width:14px;height:14px;border-radius:7px;background:var(--fg)}
+#knob{position:absolute;top:-3px;left:0;width:14px;height:14px;border-radius:7px;background:var(--fg)}
 .times{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
 /* Advert playing: tag, waiting time bar, dimmed cover */
 #adTag{flex:none;align-self:center;font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--bg);background:var(--soft);padding:2px 6px;border-radius:4px}
@@ -677,9 +677,9 @@ function tick(){
     end = ci + 1 < chapters.length ? chapters[ci + 1].t : dur;
   }
   const len = Math.max(0, end - start), pos = Math.min(Math.max(0, now - start), len);
-  const pct = (len ? pos / len * 100 : 0) + '%';
-  $('fill').style.width = pct;
-  $('knob').style.left = 'calc(' + pct + ' - 7px)';
+  const f = len ? Math.min(1, pos / len) : 0;
+  $('fill').style.width = 'calc((100% - 14px) * ' + f + ' + 7px)';
+  $('knob').style.left = 'calc((100% - 14px) * ' + f + ')';
   $('elapsed').textContent = fmt(pos);
   $('length').textContent = len ? fmt(len) : '0:00';
 }
