@@ -33,14 +33,15 @@ select:focus{border-color:var(--line)}
 .page.anim{transition:transform .28s cubic-bezier(.2,.8,.2,1)}
 
 /* Page 1: player */
-.p1{display:flex;flex-direction:column;gap:8px}
+:root{--ph:210px;--btn:66px;--icon:28px}
+.p1{display:flex;flex-direction:column;gap:8px;bottom:auto;height:var(--ph)}
 /* Song card: cover, song + number, video title, inline time bar; magnifier strip on the right */
 .now{flex:1;min-height:0;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:6px 0 6px 6px;display:flex;gap:10px;align-items:center}
-.art{width:calc(var(--h) - 108px);height:calc(var(--h) - 108px);flex:none;border-radius:8px;background:var(--line);object-fit:cover;transition:opacity .3s}
+.art{width:calc(var(--ph) - var(--btn) - 22px);height:calc(var(--ph) - var(--btn) - 22px);flex:none;border-radius:8px;background:var(--line);object-fit:cover;transition:opacity .3s}
 .art[src=""]{visibility:hidden}
 .text{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:6px}
 .line1{display:flex;align-items:baseline;gap:6px;min-width:0}
-#title{font-size:16px;font-weight:650;line-height:1.25;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#title{font-size:var(--tsize,16px);font-weight:650;line-height:1.25;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #meta{flex:none;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
 #sub{font-size:12px;color:var(--soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .time{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
@@ -56,12 +57,12 @@ select:focus{border-color:var(--line)}
 .now.ad #fill{visibility:hidden}
 .now.ad #meta{display:none}
 /* Four square buttons: back, play/pause, mic, forward */
-.controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;height:86px;flex:none}
+.controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;height:var(--btn);flex:none}
 .controls button{height:100%;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--fg);display:grid;place-items:center;cursor:pointer}
 .controls button:active{transform:scale(.97)}
 #play,#mic{background:var(--raised);border-color:var(--raisedLine)}
-.controls svg{width:30px;height:30px;fill:currentColor}
-#mic svg{width:28px;height:28px;fill:none}
+.controls svg{width:var(--icon);height:var(--icon);fill:currentColor}
+#mic svg{width:calc(var(--icon) - 2px);height:calc(var(--icon) - 2px);fill:none}
 #mic.on{background:var(--accent);border-color:var(--accent);color:var(--bg)}
 /* Search drawer covers the whole player area */
 .finder{position:absolute;inset:0;z-index:5;background:var(--panel);border:1px solid var(--raisedLine);border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:6px;opacity:0;visibility:hidden;transform:translateY(10px);transition:opacity .22s ease,transform .3s cubic-bezier(.2,.8,.2,1),visibility 0s linear .3s}
@@ -143,6 +144,10 @@ select,input{flex:1;min-width:0;width:100%;height:48px;border-radius:12px;border
 .small{height:46px;padding:0 14px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--fg);font:inherit;font-size:15px;cursor:pointer;white-space:nowrap}
 .small.on{border-color:var(--accent);color:var(--accent)}
 .list{display:flex;flex-direction:column}
+.slide{display:grid;grid-template-columns:1fr auto;align-items:center;gap:6px 10px;font-size:15px;padding-top:4px}
+.slide output{font-size:14px;color:var(--soft);font-variant-numeric:tabular-nums}
+.slide input{grid-column:1 / -1;flex:none;height:32px;padding:0;border:0;background:none;accent-color:var(--accent)}
+.slide .hint{grid-column:1 / -1}
 .check{display:flex;align-items:center;gap:12px;min-height:44px;font-size:15px;cursor:pointer}
 .check input{flex:none;width:22px;height:22px;margin:0;accent-color:var(--accent)}
 .optRow{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:15px;min-height:44px}
@@ -256,6 +261,12 @@ select,input{flex:1;min-width:0;width:100%;height:48px;border-radius:12px;border
           <button id="langTh" data-lang="th-TH">ไทย</button>
         </div>
       </div>
+      <div class="slide">
+        <label for="optBtn">Button height</label>
+        <output id="optBtnOut" for="optBtn">66px</output>
+        <input type="range" id="optBtn" min="44" max="86" step="2" value="66">
+        <p class="hint">Shorter buttons give the song tile and cover more room.</p>
+      </div>
     </div>
    </div>
   </section>
@@ -267,7 +278,7 @@ const $ = id => document.getElementById(id);
 const KEY = 'drivedeck.playlists';
 /* Options, kept on this phone */
 const OKEY = 'drivedeck.options';
-let opts = { noLists: true, songSearch: true, voiceLang: 'en-GB' };
+let opts = { noLists: true, songSearch: true, voiceLang: 'en-GB', btn: 66 };
 try{ Object.assign(opts, JSON.parse(localStorage.getItem(OKEY)) || {}); }catch(e){}
 function saveOpts(){ try{ localStorage.setItem(OKEY, JSON.stringify(opts)); }catch(e){} }
 let settingsOpen = false;
@@ -786,9 +797,10 @@ function fit(){
   const top = c.getBoundingClientRect().top + window.scrollY;
   const bottom = parseFloat(getComputedStyle(document.body).paddingBottom) || 10;
   // Player pages stay compact at the top: fit a small split-screen window, but never grow past MAX_H
-  const MAX_H = 200; // YouTube's player can't go below 200, so both pages sit at 200
-  const h = Math.max(200, Math.min(MAX_H, Math.floor(window.innerHeight - top - bottom)));
+  const MAX_H = 210; // both pages sit at 210 (YouTube's player can't go below 200)
+  const h = MAX_H; // fixed height, so the player always fills the same space at the top
   document.documentElement.style.setProperty('--h', h + 'px');
+  document.documentElement.style.setProperty('--ph', h + 'px');
 }
 function layout(){ fit(); const w = $('carousel').clientWidth + 16; place(page, 0); place(1 - page, w); }
 function showDots(){ if (page === 0 && settingsOpen) closeSettings(); } // swiping back to the player closes settings
@@ -1098,6 +1110,18 @@ function resume(){
   setTimeout(() => { if (!playing && !stateSeen){ wantPlay = false; status('Tap play to resume', false, 600000); } }, 3000);
 }
 
+/* Button height: the song tile takes whatever the buttons don't use */
+function applyBtn(){
+  const b = Math.min(86, Math.max(44, Number(opts.btn) || 66));
+  const r = document.documentElement.style;
+  r.setProperty('--btn', b + 'px');
+  r.setProperty('--icon', (b >= 60 ? 28 : 24) + 'px');
+  r.setProperty('--tsize', (210 - b - 8 >= 120 ? 18 : 16) + 'px');
+  $('optBtn').value = b; $('optBtnOut').textContent = b + 'px';
+}
+$('optBtn').addEventListener('input', () => { opts.btn = Number($('optBtn').value); applyBtn(); });
+$('optBtn').addEventListener('change', saveOpts);
+applyBtn();
 function showOpts(){
   $('optNoLists').checked = opts.noLists;
   $('optSongs').checked = opts.songSearch;
