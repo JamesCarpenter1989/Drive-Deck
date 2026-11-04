@@ -122,7 +122,7 @@ select:focus{border-color:var(--line)}
 /* Settings opens as a drawer that slides down under the video and gear */
 .drawer{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:0fr;min-width:0;opacity:0;transform:translateY(-12px);transition:grid-template-rows .38s cubic-bezier(.2,.8,.2,1),opacity .28s ease,transform .38s cubic-bezier(.2,.8,.2,1)}
 .drawer.open{grid-template-rows:1fr;opacity:1;transform:none}
-.drawer > .settings{min-height:0;min-width:0;overflow:hidden}
+.drawer > .settings{min-height:0;min-width:0;overflow:hidden;padding-top:0;transition:padding-top .38s cubic-bezier(.2,.8,.2,1)}
 .drawer.open > .settings{overflow:visible;padding-top:56px}
 .gear svg{transition:transform .38s cubic-bezier(.2,.8,.2,1)}
 .gear.open svg{transform:rotate(90deg)}
@@ -281,7 +281,7 @@ const OKEY = 'drivedeck.options';
 let opts = { noLists: true, songSearch: true, voiceLang: 'en-GB', btn: 66 };
 try{ Object.assign(opts, JSON.parse(localStorage.getItem(OKEY)) || {}); }catch(e){}
 function saveOpts(){ try{ localStorage.setItem(OKEY, JSON.stringify(opts)); }catch(e){} }
-let settingsOpen = false;
+let settingsOpen = false, closeTimer = null;
 let loadToken = 0, artId = null, playlists = [], player, ready = false, playing = false, shuffle = false, currentId = null;
 
 function load(){ try{ playlists = JSON.parse(localStorage.getItem(KEY)) || []; }catch(e){ playlists = []; } }
@@ -1051,6 +1051,7 @@ $('mic').onclick = () => {
 /* Settings page */
 function openSettings(){
   settingsOpen = true;
+  clearTimeout(closeTimer);
   const d = $('settingsView');
   d.inert = false; d.classList.add('open');
   $('openSettings').classList.add('open'); $('openSettings').setAttribute('aria-expanded', 'true');
@@ -1058,10 +1059,16 @@ function openSettings(){
 function closeSettings(){
   settingsOpen = false;
   const d = $('settingsView');
-  d.classList.remove('open'); d.inert = true;
+  d.inert = true;
   $('openSettings').classList.remove('open'); $('openSettings').setAttribute('aria-expanded', 'false');
   if (document.activeElement && d.contains(document.activeElement)) document.activeElement.blur();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  // Glide back to the top first, then fold Settings away, so nothing jumps
+  const y = window.scrollY;
+  clearTimeout(closeTimer);
+  if (y > 4){
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    closeTimer = setTimeout(() => { if (!settingsOpen) d.classList.remove('open'); }, Math.min(450, 180 + y / 4));
+  } else d.classList.remove('open');
 }
 $('openSettings').onclick = () => settingsOpen ? closeSettings() : openSettings();
 
