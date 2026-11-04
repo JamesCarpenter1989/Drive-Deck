@@ -558,7 +558,7 @@ function onState(e){
   playing = e.data === YT.PlayerState.PLAYING || e.data === YT.PlayerState.BUFFERING;
   $('playIcon').innerHTML = playing ? '<path d="M7 5h4v14H7zM13 5h4v14h-4z"/>' : '<path d="M8 5v14l11-7z"/>';
   $('play').setAttribute('aria-label', playing ? 'Pause' : 'Play');
-  if (e.data === YT.PlayerState.PLAYING) status('');
+  if (e.data === YT.PlayerState.PLAYING){ status(''); reclaimButtons(); }
   updateNow();
   syncSession();
 }
@@ -680,7 +680,8 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 let silent = null;
 function startSilent(){
   if (silent) return;
-  const rate = 8000, secs = 2, n = rate * secs, buf = new ArrayBuffer(44 + n), v = new DataView(buf);
+  // Chrome only hands media buttons to audio longer than 5 seconds, so use a 12-second silent loop
+  const rate = 8000, secs = 12, n = rate * secs, buf = new ArrayBuffer(44 + n), v = new DataView(buf);
   const w = (o, s) => [...s].forEach((c,i) => v.setUint8(o+i, c.charCodeAt(0)));
   w(0,'RIFF'); v.setUint32(4, 36+n, true); w(8,'WAVE'); w(12,'fmt ');
   v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
@@ -689,13 +690,30 @@ function startSilent(){
   silent = new Audio(URL.createObjectURL(new Blob([buf], {type:'audio/wav'})));
   silent.loop = true; silent.volume = 0.01;
   silent.play().catch(() => { silent = null; }); // blocked until a tap; the next tap tries again
-  if ('mediaSession' in navigator){
-    const ms = navigator.mediaSession;
-    ms.setActionHandler('play', () => { player.playVideo(); silent.play().catch(()=>{}); });
-    ms.setActionHandler('pause', () => player.pauseVideo());
-    ms.setActionHandler('nexttrack', next);
-    ms.setActionHandler('previoustrack', prev);
-  }
+  claimButtons();
+}
+function claimButtons(){
+  if (!('mediaSession' in navigator)) return;
+  const ms = navigator.mediaSession;
+  const set = (a, f) => { try{ ms.setActionHandler(a, f); }catch(e){} };
+  set('play', () => { player.playVideo(); if (silent) silent.play().catch(()=>{}); });
+  set('pause', () => player.pauseVideo());
+  set('nexttrack', next);
+  set('previoustrack', prev);
+  // Without these, some cars send skip as seek and YouTube moves to another video
+  set('seekforward', next);
+  set('seekbackward', prev);
+}
+/* When YouTube starts playing it grabs the car buttons for itself (and skips whole videos).
+   Restart the silent loop just after, so Drive Deck is the most recent player and gets them back. */
+let reclaimTimer = null;
+function reclaimButtons(){
+  if (!silent) return;
+  clearTimeout(reclaimTimer);
+  reclaimTimer = setTimeout(() => {
+    try{ silent.pause(); silent.currentTime = 0; }catch(e){}
+    silent.play().then(() => { claimButtons(); syncSession(); }).catch(() => {});
+  }, 700);
 }
 function syncSession(){
   if (!('mediaSession' in navigator) || !ready) return;
