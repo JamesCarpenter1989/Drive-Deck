@@ -133,7 +133,41 @@ select:focus{border-color:var(--line)}
 .gear.open svg{transform:rotate(90deg)}
 .gear.open{border-color:var(--raisedLine);background:var(--raised)}
 @media (prefers-reduced-motion: reduce){ .drawer,.gear svg,.page.anim{transition:none} }
-.settings{display:flex;flex-direction:column;gap:14px}
+.settings{display:flex;flex-direction:column;gap:26px}
+/* Settings, quiet list: no boxes, small uppercase labels, hairline rows, switches */
+.sGroup{display:flex;flex-direction:column;padding:0 4px;min-width:0}
+.sSearch{display:flex;align-items:center;gap:10px;height:46px;border-bottom:1px solid var(--raisedLine);color:var(--muted)}
+.sSearch:focus-within{border-bottom-color:var(--soft)}
+.sSearch svg{width:18px;height:18px;flex:none}
+.sSearch input{flex:1;min-width:0;height:100%;border:0;background:none;padding:0;outline:none;font-size:17px;color:var(--fg)}
+.sSearch input::-webkit-search-cancel-button{filter:grayscale(1)}
+.sGroup .results{padding-top:4px}
+.sGroup .hint{padding-top:8px}
+.sHead{display:flex;justify-content:space-between;align-items:baseline;padding-bottom:8px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.sHead span + span{letter-spacing:0;color:#5b666b;font-size:12px}
+.lib{display:flex;flex-direction:column}
+.libRow{display:flex;align-items:center;gap:12px;height:52px;border-top:1px solid #1d2326;min-width:0}
+.libThumb{width:36px;height:36px;flex:none;border-radius:6px;background:var(--raised) center/cover no-repeat}
+.libText{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.libText b{font-weight:400;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.libText small{font-size:12px;color:#6f7b80}
+.libDel{width:40px;height:40px;flex:none;border:0;background:none;color:#5b666b;display:grid;place-items:center;cursor:pointer;border-radius:10px}
+.libDel:active{background:var(--raised);color:var(--danger)}
+.libDel svg{width:16px;height:16px}
+.libEmpty{border-top:1px solid #1d2326;padding:14px 0;font-size:14px;color:#6f7b80}
+.sRow{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:50px;border:0;border-top:1px solid #1d2326;background:none;color:var(--fg);font:inherit;font-size:15px;text-align:left;padding:0;width:100%;cursor:pointer}
+.sRow .val{color:var(--soft);font-size:14px;flex:none}
+.sw{appearance:none;-webkit-appearance:none;flex:none;width:44px;height:26px;margin:0;border:0;border-radius:13px;background:var(--raised);position:relative;cursor:pointer;transition:background .2s}
+.sw::after{content:"";position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:10px;background:#6f7b80;transition:transform .2s,background .2s}
+.sw:checked{background:var(--accent)}
+.sw:checked::after{transform:translateX(18px);background:var(--bg)}
+.sw:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.sSlide{display:grid;grid-template-columns:1fr auto;gap:8px 12px;padding:12px 0;cursor:default}
+.sSlide output{font-size:13px;color:#6f7b80;font-variant-numeric:tabular-nums}
+.sSlide input{grid-column:1 / -1;flex:none;width:100%;height:24px;padding:0;border:0;background:none;accent-color:var(--accent)}
+.keyEdit{display:flex;gap:8px;padding:0 0 12px}
+.keyEdit input{flex:1;min-width:0;height:44px;border-radius:10px;border:1px solid var(--raisedLine);background:var(--bg);font-size:15px;padding:0 12px}
+.keyEdit button{height:44px;padding:0 16px;border-radius:10px;border:1px solid var(--raisedLine);background:var(--raised);color:var(--fg);font:inherit;cursor:pointer}
 .settings > *{flex:none}
 .bar{display:flex;align-items:center;gap:10px;position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:8px;margin-top:-8px}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--bg);z-index:10}
@@ -235,50 +269,31 @@ select,input{flex:1;min-width:0;width:100%;height:48px;border-radius:12px;border
 
   <section class="drawer" id="settingsView" inert>
    <div class="settings">
-    <div class="bar">
-      <h1>Settings</h1>
-    </div>
-    <div id="status"></div>
-    <div class="group">
-      <h2>Add playlist</h2>
-      <label class="search" for="q">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-        <input id="q" type="search" placeholder="Search YouTube or paste a link" autocomplete="off" spellcheck="false" enterkeyhint="search">
-        <span id="qState"></span>
-      </label>
+    <div class="sGroup">
+      <label class="sSearch" for="q"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="q" type="search" placeholder="Add from YouTube" autocomplete="off" spellcheck="false" enterkeyhint="search"><span id="qState"></span></label>
       <div class="results" id="results"></div>
       <p class="hint" id="qHint">Finds videos over 20 minutes with chapters or a tracklist in the comments.</p>
+      <div id="status"></div>
     </div>
-    <div class="group">
-      <h2>Your playlists</h2>
-      <div class="list" id="list"></div>
-      <p class="hint">Playlists must be Public or Unlisted. Private playlists, and videos whose owners block embedding, will not play.</p>
+    <div class="sGroup">
+      <div class="sHead"><span>Library</span><span id="libCount"></span></div>
+      <div class="lib" id="list"></div>
     </div>
-    <div class="group">
-      <h2>API key and chapters</h2>
-      <input id="apiKey" placeholder="Paste YouTube Data API key" autocomplete="off" spellcheck="false">
-      <div class="row">
-        <button class="small" id="saveKey">Save key</button>
-        <button class="small" id="chapToggle" aria-pressed="true">Skip by chapter: On</button>
-      </div>
-      <p class="hint">With a key saved, next and previous jump between chapters when a video has them. After the last chapter, next goes to the next video. The key is stored only on this phone.</p>
-    </div>
-    <div class="group">
-      <h2>Options</h2>
-      <label class="check" for="optNoLists"><input type="checkbox" id="optNoLists"><span>Leave regular playlists out of YouTube search</span></label>
-      <label class="check" for="optSongs"><input type="checkbox" id="optSongs"><span>Player search also finds songs inside videos</span></label>
-      <div class="optRow">
-        <span>Voice search language</span>
-        <div class="seg" role="group" aria-label="Voice search language">
-          <button id="langEn" data-lang="en-GB">English</button>
-          <button id="langTh" data-lang="th-TH">ไทย</button>
-        </div>
-      </div>
-      <div class="slide">
+    <div class="sGroup">
+      <div class="sHead"><span>Playback</span></div>
+      <label class="sRow" for="chapSw"><span>Skip by song</span><input type="checkbox" role="switch" class="sw" id="chapSw"></label>
+      <label class="sRow" for="optSongs"><span>Find songs inside videos</span><input type="checkbox" role="switch" class="sw" id="optSongs"></label>
+      <label class="sRow" for="optLists"><span>Include playlists in search</span><input type="checkbox" role="switch" class="sw" id="optLists"></label>
+      <button class="sRow" id="langRow"><span>Voice language</span><span class="val" id="langVal">English ›</span></button>
+      <div class="sRow sSlide">
         <label for="optBtn">Button height</label>
-        <output id="optBtnOut" for="optBtn">66px</output>
+        <output id="optBtnOut" for="optBtn">66</output>
         <input type="range" id="optBtn" min="44" max="86" step="2" value="66">
-        <p class="hint">Shorter buttons give the song tile and cover more room.</p>
+      </div>
+      <button class="sRow" id="keyRow" aria-expanded="false" aria-controls="keyEdit"><span>YouTube key</span><span class="val" id="keyVal">Add ›</span></button>
+      <div class="keyEdit" id="keyEdit" hidden>
+        <input id="apiKey" placeholder="Paste YouTube Data API key" autocomplete="off" spellcheck="false">
+        <button id="saveKey">Save</button>
       </div>
     </div>
    </div>
@@ -330,12 +345,21 @@ function render(){
   });
   if (!currentId) $('title').textContent = playlists.length ? 'Search, or press play' : 'Add a playlist in settings';
   const list = $('list'); list.innerHTML = '';
+  $('libCount').textContent = playlists.length || '';
+  if (!playlists.length){ const e = document.createElement('div'); e.className = 'libEmpty'; e.textContent = 'Nothing saved yet. Search above to add music.'; list.appendChild(e); }
   playlists.forEach((p,i) => {
-    const d = document.createElement('div'); d.className = 'item';
-    const s = document.createElement('span'); s.textContent = p.name + (p.type === 'video' ? ' (video)' : '');
-    const b = document.createElement('button'); b.textContent = 'Remove';
-    b.onclick = () => { playlists.splice(i,1); save(); render(); };
-    d.append(s,b); list.appendChild(d);
+    const d = document.createElement('div'); d.className = 'libRow';
+    const th = document.createElement('span'); th.className = 'libThumb';
+    const src = p.type === 'video' ? 'https://i.ytimg.com/vi/' + p.id + '/default.jpg' : (p.thumb || '');
+    if (src) th.style.backgroundImage = 'url("' + src + '")';
+    const t = document.createElement('span'); t.className = 'libText';
+    const n = document.createElement('b'); n.textContent = p.name;
+    const m = document.createElement('small'); m.textContent = p.type === 'video' ? (p.songs && p.songs.length ? p.songs.length + ' songs' : 'Video') : 'Playlist';
+    t.append(n, m);
+    const b = document.createElement('button'); b.className = 'libDel'; b.setAttribute('aria-label', 'Remove ' + p.name);
+    b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"/></svg>';
+    b.onclick = () => { playlists.splice(i,1); save(); render(); status('Removed ' + p.name + '.'); };
+    d.append(th, t, b); list.appendChild(d);
   });
 }
 
@@ -491,23 +515,30 @@ let apiKey = '', chaptersOn = true, chapters = [], chapVideo = null;
 const chapCache = {};
 try{ apiKey = localStorage.getItem('drivedeck.apikey') || ''; chaptersOn = localStorage.getItem('drivedeck.chapters') !== 'off'; }catch(e){}
 $('apiKey').value = apiKey;
-function showChapToggle(){
-  $('chapToggle').textContent = 'Skip by chapter: ' + (chaptersOn ? 'On' : 'Off');
-  $('chapToggle').classList.toggle('on', chaptersOn);
-  $('chapToggle').setAttribute('aria-pressed', chaptersOn);
-}
+function showChapToggle(){ $('chapSw').checked = chaptersOn; }
+function showKey(){ $('keyVal').textContent = apiKey ? 'Saved ✓' : 'Add ›'; }
+showKey();
+$('keyRow').onclick = () => {
+  const open = $('keyEdit').hidden;
+  $('keyEdit').hidden = !open;
+  $('keyRow').setAttribute('aria-expanded', String(open));
+  if (open) setTimeout(() => $('apiKey').focus(), 50);
+};
 showChapToggle();
 $('saveKey').onclick = async () => {
   apiKey = $('apiKey').value.trim();
   try{ localStorage.setItem('drivedeck.apikey', apiKey); }catch(e){}
   Object.keys(chapCache).forEach(k => delete chapCache[k]);
   chapVideo = null; chapters = [];
+  showKey();
   if (!apiKey){ status('Key removed. Buttons will skip whole videos.'); return; }
   const test = await fetchChapters('dQw4w9WgXcQ', true);
-  status(test === 'error' ? 'That key did not work. Check it is copied in full and YouTube Data API v3 is enabled.' : 'Key saved and working.', test === 'error');
+  const bad = test === 'error';
+  status(bad ? 'That key did not work. Check it is copied in full and YouTube Data API v3 is enabled.' : 'Key saved and working.', bad);
+  if (!bad){ $('keyEdit').hidden = true; $('keyRow').setAttribute('aria-expanded', 'false'); }
 };
-$('chapToggle').onclick = () => {
-  chaptersOn = !chaptersOn;
+$('chapSw').onchange = () => {
+  chaptersOn = $('chapSw').checked;
   try{ localStorage.setItem('drivedeck.chapters', chaptersOn ? 'on' : 'off'); }catch(e){}
   showChapToggle();
 };
@@ -1145,19 +1176,19 @@ function applyBtn(){
   r.setProperty('--btn', b + 'px');
   r.setProperty('--icon', (b >= 60 ? 28 : 24) + 'px');
   r.setProperty('--tsize', (210 - b - 8 >= 120 ? 19 : 16) + 'px');
-  $('optBtn').value = b; $('optBtnOut').textContent = b + 'px';
+  $('optBtn').value = b; $('optBtnOut').textContent = b;
 }
 $('optBtn').addEventListener('input', () => { opts.btn = Number($('optBtn').value); applyBtn(); });
 $('optBtn').addEventListener('change', saveOpts);
 applyBtn();
 function showOpts(){
-  $('optNoLists').checked = opts.noLists;
+  $('optLists').checked = !opts.noLists;
   $('optSongs').checked = opts.songSearch;
-  ['langEn','langTh'].forEach(id => $(id).setAttribute('aria-pressed', String($(id).dataset.lang === opts.voiceLang)));
+  $('langVal').textContent = (opts.voiceLang === 'th-TH' ? 'ไทย' : 'English') + ' ›';
 }
-$('optNoLists').onchange = () => { opts.noLists = $('optNoLists').checked; saveOpts(); lastQ = ''; };
+$('optLists').onchange = () => { opts.noLists = !$('optLists').checked; saveOpts(); lastQ = ''; };
 $('optSongs').onchange = () => { opts.songSearch = $('optSongs').checked; saveOpts(); };
-['langEn','langTh'].forEach(id => $(id).onclick = () => { opts.voiceLang = $(id).dataset.lang; saveOpts(); showOpts(); });
+$('langRow').onclick = () => { opts.voiceLang = opts.voiceLang === 'th-TH' ? 'en-GB' : 'th-TH'; saveOpts(); showOpts(); };
 showOpts();
 
 load(); render(); fillSongs();
