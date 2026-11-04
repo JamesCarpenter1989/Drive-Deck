@@ -33,34 +33,39 @@ select:focus{border-color:var(--line)}
 .page.anim{transition:transform .28s cubic-bezier(.2,.8,.2,1)}
 
 /* Page 1: player */
-:root{--ph:210px;--btn:66px;--icon:28px}
+:root{--ph:210px;--btn:66px;--icon:28px;--tile:#161b1d;--tileLine:#22292c;--key:#121618;--keyLine:#1f2629;--keyIcon:#c9d0d3;--keyMain:#191e21;--keyMainLine:#262e32;--keyMainIcon:#e6eaeb}
 .p1{display:flex;flex-direction:column;gap:8px;bottom:auto;height:var(--ph)}
-/* Song card: cover, song + number, video title, inline time bar; magnifier strip on the right */
-.now{flex:1;min-height:0;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:6px 0 6px 6px;display:flex;gap:10px;align-items:center}
-.art{width:calc(var(--ph) - var(--btn) - 22px);height:calc(var(--ph) - var(--btn) - 22px);flex:none;border-radius:8px;background:var(--line);object-fit:cover;transition:opacity .3s}
+/* Song card (style 5): large cover; beside it the song, video title, count, and a wide time bar with a dot */
+.now{flex:1;min-height:0;background:var(--tile);border:1px solid var(--tileLine);border-radius:12px;padding:8px;display:flex;gap:12px;align-items:stretch}
+.art{width:calc(var(--ph) - var(--btn) - 26px);height:calc(var(--ph) - var(--btn) - 26px);flex:none;align-self:center;border-radius:8px;background:var(--line);object-fit:cover;box-shadow:0 4px 14px rgba(0,0,0,.45);transition:opacity .3s}
 .art[src=""]{visibility:hidden}
-.text{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:6px}
-.line1{display:flex;align-items:baseline;gap:6px;min-width:0}
-#title{font-size:var(--tsize,16px);font-weight:650;line-height:1.25;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#meta{flex:none;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.text{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:space-between;padding:2px 2px 2px 0}
+.head{display:flex;gap:8px;align-items:flex-start;min-width:0}
+.headInfo{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.line1{display:flex;align-items:center;gap:6px;min-width:0}
+#title{font-size:var(--tsize,19px);font-weight:700;line-height:1.2;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #sub{font-size:12px;color:var(--soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.time{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
-.progress{flex:1;height:3px;border-radius:2px;background:var(--track);overflow:hidden}
-#fill{height:100%;width:0;border-radius:2px;background:var(--accent)}
-.lens{width:36px;align-self:stretch;flex:none;border:0;border-left:1px solid var(--line);background:none;color:var(--muted);display:grid;place-items:center;cursor:pointer;margin:-6px 0}
-.lens svg{width:17px;height:17px}
+#meta{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;min-height:1.2em}
+.lens{width:32px;height:32px;flex:none;border-radius:9px;border:1px solid var(--tileLine);background:var(--bg);color:var(--muted);display:grid;place-items:center;cursor:pointer}
+.lens svg{width:15px;height:15px}
+.time{display:flex;flex-direction:column;gap:5px}
+.progress{height:8px;border-radius:4px;background:var(--track);position:relative;margin:0 7px}
+#fill{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:4px;background:var(--accent)}
+#knob{position:absolute;top:-3px;left:-7px;width:14px;height:14px;border-radius:7px;background:var(--fg)}
+.times{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
 /* Advert playing: tag, waiting time bar, dimmed cover */
 #adTag{flex:none;align-self:center;font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--bg);background:var(--soft);padding:2px 6px;border-radius:4px}
 .now.ad .art{opacity:.45}
 .now.ad #title{font-size:14px;font-weight:600}
 .now.ad .progress{background:repeating-linear-gradient(90deg,var(--raisedLine) 0 6px,transparent 6px 10px)}
-.now.ad #fill{visibility:hidden}
+.now.ad #title{font-size:16px}
+.now.ad #fill,.now.ad #knob{visibility:hidden}
 .now.ad #meta{display:none}
 /* Four square buttons: back, play/pause, mic, forward */
 .controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;height:var(--btn);flex:none}
-.controls button{height:100%;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--fg);display:grid;place-items:center;cursor:pointer}
+.controls button{height:100%;border-radius:12px;border:1px solid var(--keyLine);background:var(--key);color:var(--keyIcon);display:grid;place-items:center;cursor:pointer}
 .controls button:active{transform:scale(.97)}
-#play,#mic{background:var(--raised);border-color:var(--raisedLine)}
+#play,#mic{background:var(--keyMain);border-color:var(--keyMainLine);color:var(--keyMainIcon)}
 .controls svg{width:var(--icon);height:var(--icon);fill:currentColor}
 #mic svg{width:calc(var(--icon) - 2px);height:calc(var(--icon) - 2px);fill:none}
 #mic.on{background:var(--accent);border-color:var(--accent);color:var(--bg)}
@@ -120,8 +125,8 @@ select:focus{border-color:var(--line)}
 
 /* Settings page */
 /* Settings opens as a drawer that slides down under the video and gear */
-.drawer{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:0fr;min-width:0;opacity:0;transform:translateY(-12px);transition:grid-template-rows .38s cubic-bezier(.2,.8,.2,1),opacity .28s ease,transform .38s cubic-bezier(.2,.8,.2,1)}
-.drawer.open{grid-template-rows:1fr;opacity:1;transform:none}
+.drawer{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:0fr;min-width:0;opacity:0;transition:grid-template-rows .38s cubic-bezier(.2,.8,.2,1),opacity .28s ease}
+.drawer.open{grid-template-rows:1fr;opacity:1}
 .drawer > .settings{min-height:0;min-width:0;overflow:hidden;padding-top:0;transition:padding-top .38s cubic-bezier(.2,.8,.2,1)}
 .drawer.open > .settings{overflow:visible;padding-top:56px}
 .gear svg{transition:transform .38s cubic-bezier(.2,.8,.2,1)}
@@ -188,11 +193,19 @@ select,input{flex:1;min-width:0;width:100%;height:48px;border-radius:12px;border
         <div class="now" id="now" aria-live="polite">
           <img class="art" id="art" src="" alt="">
           <div class="text">
-            <div class="line1"><span id="adTag" hidden>ADVERT</span><div id="title">Add a playlist in settings</div><span id="meta">–</span></div>
-            <div id="sub"></div>
-            <div class="time" aria-hidden="true"><span id="elapsed">0:00</span><div class="progress"><div id="fill"></div></div><span id="length">0:00</span></div>
+            <div class="head">
+              <div class="headInfo">
+                <div class="line1"><span id="adTag" hidden>ADVERT</span><div id="title">Add a playlist in settings</div></div>
+                <div id="sub"></div>
+                <div id="meta"></div>
+              </div>
+              <button class="lens" id="openFind" aria-label="Search your list"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>
+            </div>
+            <div class="time" aria-hidden="true">
+              <div class="progress"><div id="fill"></div><div id="knob"></div></div>
+              <div class="times"><span id="elapsed">0:00</span><span id="length">0:00</span></div>
+            </div>
           </div>
-          <button class="lens" id="openFind" aria-label="Search your list"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>
         </div>
         <div class="controls">
           <button id="prev" aria-label="Previous"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zM9.5 12 18 6v12z"/></svg></button>
@@ -639,7 +652,7 @@ function updateNow(){
   } else {
     title = vt; sub = p ? p.name : ''; meta = list && list.length ? (idx + 1) + '/' + list.length : '';
   }
-  if (adActive){ sub = title ? 'Up next: ' + title : 'Your music starts next'; title = 'Music starts next'; }
+  if (adActive){ sub = title ? 'Up next: ' + title : 'Your music starts next'; title = 'Music next'; }
   if (title) $('title').textContent = title;
   if (Date.now() > statusUntil) $('sub').textContent = sub;
   $('meta').textContent = meta || '';
@@ -664,7 +677,9 @@ function tick(){
     end = ci + 1 < chapters.length ? chapters[ci + 1].t : dur;
   }
   const len = Math.max(0, end - start), pos = Math.min(Math.max(0, now - start), len);
-  $('fill').style.width = (len ? pos / len * 100 : 0) + '%';
+  const pct = (len ? pos / len * 100 : 0) + '%';
+  $('fill').style.width = pct;
+  $('knob').style.left = 'calc(' + pct + ' - 7px)';
   $('elapsed').textContent = fmt(pos);
   $('length').textContent = len ? fmt(len) : '0:00';
 }
@@ -1063,12 +1078,18 @@ function closeSettings(){
   $('openSettings').classList.remove('open'); $('openSettings').setAttribute('aria-expanded', 'false');
   if (document.activeElement && d.contains(document.activeElement)) document.activeElement.blur();
   // Glide back to the top first, then fold Settings away, so nothing jumps
-  const y = window.scrollY;
+  // Glide back to the very top first and only then fold Settings away.
+  // Folding while still scrolled makes the browser snap the page up, which is the jump.
   clearTimeout(closeTimer);
-  if (y > 4){
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    closeTimer = setTimeout(() => { if (!settingsOpen) d.classList.remove('open'); }, Math.min(450, 180 + y / 4));
-  } else d.classList.remove('open');
+  const fold = () => { if (!settingsOpen) d.classList.remove('open'); };
+  if (window.scrollY <= 1){ fold(); return; }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  const started = Date.now();
+  (function wait(){
+    if (settingsOpen) return;
+    if (window.scrollY <= 1 || Date.now() - started > 1200){ window.scrollTo(0, 0); fold(); return; }
+    closeTimer = setTimeout(wait, 30);
+  })();
 }
 $('openSettings').onclick = () => settingsOpen ? closeSettings() : openSettings();
 
@@ -1123,7 +1144,7 @@ function applyBtn(){
   const r = document.documentElement.style;
   r.setProperty('--btn', b + 'px');
   r.setProperty('--icon', (b >= 60 ? 28 : 24) + 'px');
-  r.setProperty('--tsize', (210 - b - 8 >= 120 ? 18 : 16) + 'px');
+  r.setProperty('--tsize', (210 - b - 8 >= 120 ? 19 : 16) + 'px');
   $('optBtn').value = b; $('optBtnOut').textContent = b + 'px';
 }
 $('optBtn').addEventListener('input', () => { opts.btn = Number($('optBtn').value); applyBtn(); });
