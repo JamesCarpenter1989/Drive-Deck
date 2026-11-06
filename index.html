@@ -154,6 +154,15 @@ select:focus{border-color:var(--line)}
 .libDel{width:40px;height:40px;flex:none;border:0;background:none;color:#5b666b;display:grid;place-items:center;cursor:pointer;border-radius:10px}
 .libDel:active{background:var(--raised);color:var(--danger)}
 .libDel svg{width:16px;height:16px}
+.libTap{cursor:pointer;border-radius:6px}
+.libNeed{color:var(--soft)!important;text-decoration:underline;text-decoration-color:var(--raisedLine);text-underline-offset:3px}
+.tlEdit{display:flex;flex-direction:column;gap:8px;padding:4px 0 14px 48px}
+.tlEdit textarea{width:100%;box-sizing:border-box;min-height:120px;resize:vertical;border-radius:10px;border:1px solid var(--raisedLine);background:var(--bg);color:var(--fg);font:inherit;font-size:14px;line-height:1.5;padding:10px 12px;font-variant-numeric:tabular-nums}
+.tlEdit textarea:focus{outline:none;border-color:var(--soft)}
+.tlPrev{margin:0;font-size:13px;color:var(--soft);min-height:1.2em;overflow-wrap:anywhere}
+.tlBtns{display:flex;gap:8px;flex-wrap:wrap}
+.tlBtns button{height:42px;padding:0 16px;border-radius:10px;border:1px solid var(--raisedLine);background:var(--raised);color:var(--fg);font:inherit;font-size:14px;cursor:pointer}
+.tlBtns .quiet{background:none;color:var(--soft)}
 .libEmpty{border-top:1px solid #1d2326;padding:14px 0;font-size:14px;color:#6f7b80}
 .sRow{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:50px;border:0;border-top:1px solid #1d2326;background:none;color:var(--fg);font:inherit;font-size:15px;text-align:left;padding:0;width:100%;cursor:pointer}
 .sRow .val{color:var(--soft);font-size:14px;flex:none}
@@ -332,6 +341,41 @@ function parseLink(url){
   return null;
 }
 
+/* Paste a tracklist for a video that has no chapters or comment tracklist */
+let editingId = null;
+function tracklistEditor(p){
+  const box = document.createElement('div'); box.className = 'tlEdit';
+  const ta = document.createElement('textarea'); ta.id = 'tl-' + p.id; ta.rows = 6; ta.spellcheck = false;
+  ta.placeholder = '0:00 First song\n3:42 Second song\n7:15 Third song';
+  ta.setAttribute('aria-label', 'Tracklist for ' + p.name);
+  if (p.manual && p.songs) ta.value = p.songs.map(c => fmt(c.t) + ' ' + c.name).join('\n');
+  const note = document.createElement('p'); note.className = 'hint';
+  note.textContent = 'One song per line with its start time. Copy it from the video description, a comment or a website.';
+  const preview = document.createElement('p'); preview.className = 'tlPrev';
+  const showPrev = () => {
+    const l = parseChapters(ta.value, false, true);
+    preview.textContent = ta.value.trim() ? (l.length ? l.length + ' songs found: ' + l.slice(0, 3).map(c => c.name).join(', ') + (l.length > 3 ? '…' : '') : 'No times found yet. Each line needs a time like 3:42.') : '';
+  };
+  ta.addEventListener('input', showPrev); showPrev();
+  const row = document.createElement('div'); row.className = 'tlBtns';
+  const saveB = document.createElement('button'); saveB.textContent = 'Save tracklist';
+  saveB.onclick = () => {
+    const l = parseChapters(ta.value, false, true);
+    if (!l.length){ status('That tracklist needs at least two lines with times, like 0:00 Song.', true); return; }
+    p.songs = l; p.manual = true; delete chapCache[p.id];
+    if (chapVideo === p.id){ chapVideo = null; chapters = []; } // the playing video picks it up straight away
+    save(); editingId = null; render(); status('Saved ' + l.length + ' songs for ' + p.name + '.');
+  };
+  row.appendChild(saveB);
+  if (p.manual){
+    const clr = document.createElement('button'); clr.textContent = 'Remove tracklist'; clr.className = 'quiet';
+    clr.onclick = () => { delete p.manual; delete p.songs; delete chapCache[p.id]; if (chapVideo === p.id){ chapVideo = null; chapters = []; } save(); editingId = null; render(); status('Removed your tracklist for ' + p.name + '.'); };
+    row.appendChild(clr);
+  }
+  box.append(ta, preview, row, note);
+  setTimeout(() => ta.focus(), 50);
+  return box;
+}
 function render(){
   const pick = $('pick');
   pick.innerHTML = '';
@@ -354,12 +398,23 @@ function render(){
     if (src) th.style.backgroundImage = 'url("' + src + '")';
     const t = document.createElement('span'); t.className = 'libText';
     const n = document.createElement('b'); n.textContent = p.name;
-    const m = document.createElement('small'); m.textContent = p.type === 'video' ? (p.songs && p.songs.length ? p.songs.length + ' songs' : 'Video') : 'Playlist';
+    const m = document.createElement('small');
+    if (p.type === 'video'){
+      m.textContent = p.songs && p.songs.length ? p.songs.length + ' songs' + (p.manual ? ' · your tracklist' : '') : 'No songs found · tap to paste a tracklist';
+      if (!(p.songs && p.songs.length)) m.className = 'libNeed';
+    } else m.textContent = 'Playlist';
     t.append(n, m);
+    if (p.type === 'video'){
+      t.classList.add('libTap'); t.setAttribute('role', 'button'); t.tabIndex = 0;
+      t.setAttribute('aria-expanded', String(editingId === p.id));
+      t.onclick = () => { editingId = editingId === p.id ? null : p.id; render(); };
+      t.onkeydown = ev => { if (ev.key === 'Enter') t.onclick(); };
+    }
     const b = document.createElement('button'); b.className = 'libDel'; b.setAttribute('aria-label', 'Remove ' + p.name);
     b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"/></svg>';
     b.onclick = () => { playlists.splice(i,1); save(); render(); status('Removed ' + p.name + '.'); };
     d.append(th, t, b); list.appendChild(d);
+    if (p.type === 'video' && editingId === p.id) list.appendChild(tracklistEditor(p));
   });
 }
 
@@ -370,6 +425,14 @@ function addEntry(name, parsed, songs){
   playlists.push(entry); save(); render();
   $('pick').value = playlists.length - 1;
   status('Added ' + name + '.');
+  // A video with no songs: check for chapters or a comment tracklist, and if there are none, open the paste box
+  if (parsed.type === 'video' && !entry.songs){
+    fetchChapters(parsed.id).then(c => {
+      if (Array.isArray(c) && c.length){ rememberSongs(parsed.id, c); render(); return; }
+      editingId = parsed.id; render();
+      status('No songs found for ' + name + '. Paste a tracklist to skip by song.');
+    });
+  }
   return true;
 }
 
@@ -544,16 +607,21 @@ $('chapSw').onchange = () => {
 };
 
 function toSec(t){ return t.split(':').reduce((a,b) => a*60 + Number(b), 0); }
-function parseChapters(desc, loose){
+function parseChapters(desc, loose, pasted){
   const out = [];
   desc.split(/\r?\n/).forEach(line => {
     const m = line.match(/(?:^|[\s\[(])((?:\d{1,2}:)?\d{1,2}:\d{2})(?=$|[\s\])\-–—:|.,])/);
     if (!m) return;
     const t = toSec(m[1]);
-    const name = line.replace(m[0], ' ').replace(/^[\s\-–—:|.)\]]+|[\s\-–—:|(\[]+$/g, '').replace(/^\d{1,3}[.)]\s+/, '').replace(/\s{2,}/g, ' ').trim() || 'Chapter';
+    const name = line.replace(m[0], ' ').replace(/^[\s\-–—:|.)\]]+|[\s\-–—:|(\[]+$/g, '').replace(/^\d{1,3}[.)]\s+/, '').replace(/\s{2,}/g, ' ').trim().replace(/\s*[)\]]$/, q => /[(\[]/.test(line.replace(m[0], ' ')) ? q : '').trim() || 'Chapter';
     if (!out.length || t > out[out.length - 1].t) out.push({ t, name });
   });
   if (loose && out.length && out[0].t <= 15) out[0].t = 0; // comment tracklists sometimes start a few seconds in
+  if (pasted){
+    if (out.length && out[0].t > 15 && !/^intro\b/i.test(out[0].name)) out.unshift({ t: 0, name: 'Intro' });
+    else if (out.length) out[0].t = 0;
+    return out.length >= 2 ? out : [];
+  }
   // YouTube's own rule: first chapter at 0:00 and at least three chapters
   return out.length >= 3 && out[0].t === 0 ? out : [];
 }
@@ -575,6 +643,8 @@ async function commentTracklist(id){
 }
 
 async function fetchChapters(id, testOnly){
+  const own = !testOnly && playlists.find(p => p.type === 'video' && p.id === id && p.manual && p.songs);
+  if (own) return own.songs;
   if (!apiKey) return [];
   if (chapCache[id] && !testOnly) return chapCache[id];
   try{
@@ -656,6 +726,7 @@ function onState(e){
   if (e.data === 1 || e.data === 3) stateSeen = true;
   if (e.data === 1){ wantPlay = true; lastMove = Date.now(); }
   if (e.data === 2){ wantPlay = false; setAd(false); }
+  if (e.data === 0 && shuf.on && !shuf.jumping) shuffleNext(); // last song in a video, or a video with no song list
   playing = e.data === YT.PlayerState.PLAYING || e.data === YT.PlayerState.BUFFERING;
   setPlayIcon();
   if (e.data === YT.PlayerState.PLAYING){ status(''); reclaimButtons(); }
@@ -686,6 +757,7 @@ function updateNow(){
   if (adActive){ sub = title ? 'Up next: ' + title : 'Your music starts next'; title = 'Music next'; }
   if (title) $('title').textContent = title;
   if (Date.now() > statusUntil) $('sub').textContent = sub;
+  if (shuf.on) meta = 'Shuffle' + (shuf.label !== 'everything' ? ' · ' + shuf.label : '');
   $('meta').textContent = meta || '';
   const key = title + '|' + vt;
   if (key !== lastShown){ lastShown = key; syncSession(); }
@@ -757,12 +829,19 @@ function togglePlay(){
 }
 function next(){
   if (!ready) return;
+  if (shuf.on){ shuffleNext(); return; }
   const ci = chapterIndex();
   if (useChapters() && ci >= 0 && ci < chapters.length - 1){ player.seekTo(chapters[ci + 1].t, true); setTimeout(updateNow, 300); return; }
   player.nextVideo();
 }
 function prev(){
   if (!ready) return;
+  if (shuf.on){
+    // Back to the start of this song, or press again within 5 seconds for the previous shuffled song
+    if (shuf.cur && player.getCurrentTime() - shuf.cur.t > 5){ player.seekTo(shuf.cur.t, true); setTimeout(updateNow, 300); }
+    else shufflePrev();
+    return;
+  }
   const now = player.getCurrentTime(), ci = chapterIndex();
   if (useChapters() && ci >= 0){
     if (now - chapters[ci].t > 5 || ci === 0) { if (now > 5 || ci > 0) { player.seekTo(chapters[ci].t, true); setTimeout(updateNow, 300); return; } }
@@ -861,7 +940,7 @@ function go(dir){ // dir -1: content moves left (swipe right-to-left), +1: moves
 (() => {
   const c = $('carousel');
   let x0 = 0, y0 = 0, dx = 0, drag = false, track = false;
-  const skip = '#found, #finder, input[type=range], input[type=search], #q, #apiKey'; // swipes work everywhere else, Settings included
+  const skip = '#found, #finder, input[type=range], input[type=search], #q, #apiKey, textarea'; // swipes work everywhere else, Settings included
   document.addEventListener('touchstart', e => { if (e.target.closest(skip)){ track = false; return; } const t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; dx = 0; drag = false; track = true; }, { passive: true });
   document.addEventListener('touchmove', e => {
     if (!track) return;
@@ -897,7 +976,7 @@ function go(dir){ // dir -1: content moves left (swipe right-to-left), +1: moves
 function rememberSongs(id, list){
   if (!Array.isArray(list) || !list.length) return;
   const e = playlists.find(p => p.type === 'video' && p.id === id);
-  if (e && (!e.songs || e.songs.length !== list.length)){ e.songs = list; save(); }
+  if (e && !e.manual && (!e.songs || e.songs.length !== list.length)){ e.songs = list; save(); }
 }
 async function fillSongs(){
   if (!apiKey) return;
@@ -946,6 +1025,7 @@ function findMatches(text){
   return out.sort((a, b) => b.sc - a.sc);
 }
 function playMatch(m){
+  shuf.on = false; shuf.cur = null; // picking something specific ends shuffle
   closeFound(); closeFinder();
   keepAwake(); startSilent();
   $('pick').value = m.i;
@@ -992,7 +1072,7 @@ $('find').addEventListener('input', () => {
   if (!v){ $('sResults').innerHTML = ''; return; }
   showTyped(findMatches(v));
 });
-$('find').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); const m = findMatches($('find').value)[0]; if (m) playMatch(m); } });
+$('find').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); if (shuffleCommand($('find').value)){ closeFinder(); return; } const m = findMatches($('find').value)[0]; if (m) playMatch(m); } });
 document.addEventListener('pointerdown', e => {
   if ($('found').hidden) return;
   if (e.target.closest('#found, #mic')) return;
@@ -1086,6 +1166,9 @@ $('mic').onclick = () => {
     const heard = (finalText || heardSoFar).trim();
     heardSoFar = '';
     if (!heard || voiceStopped){ closeFound(); return; }
+    // "shuffle everything", "shuffle <artist>", "stop shuffle"
+    if (shuffleCommand(heard)) return;
+    for (const a of alts.slice(1)) if (shuffleCommand(a)) return;
     // Try each version Chrome heard and keep whichever matches best
     let list = findMatches(heard);
     alts.slice(1).forEach(a => { const l = findMatches(a); if (l.length && (!list.length || l[0].sc > list[0].sc)) list = l; });
@@ -1093,6 +1176,91 @@ $('mic').onclick = () => {
   };
   try{ rec.start(); }catch(err){ setListening(false); }
 };
+
+/* Shuffle: random songs from across your saved videos.
+   Voice: "shuffle everything", "shuffle <artist>", "stop shuffle" (Thai: สุ่มทั้งหมด, สุ่ม <artist>, หยุดสุ่ม). */
+const shuf = { on: false, label: '', order: [], pos: -1, cur: null, history: [], jumping: false };
+function shufflePool(q){
+  const pool = [];
+  playlists.forEach((e, i) => {
+    if (e.type !== 'video') return; // whole playlists can't be split into songs
+    if (q && score(q, e.name) < 0.6) return;
+    const songs = e.songs && e.songs.length ? e.songs : [{ t: 0, name: e.name }];
+    songs.forEach((c, n) => pool.push({ i, id: e.id, t: c.t, end: n + 1 < songs.length ? songs[n + 1].t : null, name: c.name }));
+  });
+  return pool;
+}
+function shuffled(a){
+  const b = a.slice();
+  for (let i = b.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; }
+  return b;
+}
+function playShuffleItem(it){
+  shuf.cur = it; shuf.jumping = true;
+  setTimeout(() => { shuf.jumping = false; }, 2500);
+  $('pick').value = it.i;
+  keepAwake(); startSilent();
+  if (ready && currentId === it.id){ markWant(); player.seekTo(it.t, true); player.playVideo(); }
+  else { currentId = null; startSelected(it.t); }
+  setTimeout(updateNow, 400);
+}
+function shuffleNext(){
+  if (!shuf.order.length) return;
+  if (shuf.cur) shuf.history.push(shuf.cur);
+  shuf.pos++;
+  if (shuf.pos >= shuf.order.length){ // everything has played once: reshuffle, avoiding an instant repeat
+    const last = shuf.cur;
+    shuf.order = shuffled(shuf.order);
+    if (shuf.order.length > 1 && last && shuf.order[0] === last) shuf.order.push(shuf.order.shift());
+    shuf.pos = 0;
+  }
+  playShuffleItem(shuf.order[shuf.pos]);
+}
+function shufflePrev(){
+  const back = shuf.history.pop();
+  if (!back){ if (shuf.cur) playShuffleItem(shuf.cur); return; }
+  shuf.pos = Math.max(0, shuf.pos - 1);
+  playShuffleItem(back);
+}
+function startShuffle(q){
+  const pool = shufflePool(q ? norm(q) : '');
+  if (!pool.length){ voiceNote(q ? 'Nothing in your list matches “' + q + '” to shuffle.' : 'Add some videos first, then shuffle.'); return; }
+  const vids = new Set(pool.map(p => p.id)).size;
+  Object.assign(shuf, { on: true, label: q || 'everything', order: shuffled(pool), pos: -1, cur: null, history: [] });
+  voiceNote('Shuffling ' + (q ? '“' + q + '”' : 'everything') + ' · ' + pool.length + ' songs from ' + vids + (vids === 1 ? ' video' : ' videos'));
+  shuffleNext();
+}
+function stopShuffle(){
+  if (!shuf.on){ voiceNote('Shuffle is already off.'); return; }
+  shuf.on = false; shuf.cur = null;
+  voiceNote('Shuffle off. Carrying on through this video in order.');
+  updateNow();
+}
+function voiceNote(text){
+  const f = $('found'); f.innerHTML = '';
+  const e = document.createElement('div'); e.className = 'listen';
+  const t = document.createElement('div'); t.className = 'txt';
+  const b = document.createElement('b'); b.textContent = text;
+  t.appendChild(b); e.appendChild(t); f.appendChild(e); f.hidden = false;
+  clearTimeout(voiceNote.t);
+  voiceNote.t = setTimeout(() => { if (!listening) closeFound(); }, 2500);
+}
+// Spoken or typed commands. Returns true when the words were a shuffle command.
+function shuffleCommand(text){
+  const t = norm(text);
+  if (/^(stop|end|cancel|turn off|switch off|no more) (the )?shuff?le\b|^shuff?le off\b|^หยุด ?สุ่ม/.test(t)){ stopShuffle(); return true; }
+  if (/^(shuff?le|mix)( up)? (everything|all|all songs|all music|my music|the lot)\b|^(shuff?le|mix)$|^สุ่ม ?(ทั้งหมด|เพลงทั้งหมด)?$/.test(t)){ startShuffle(null); return true; }
+  const m = t.match(/^(?:shuff?le|mix)(?: up)? (?:songs by |music by |some )?(.+)$/) || t.match(/^สุ่ม ?(?:เพลง ?)?(.+)$/);
+  if (m){ startShuffle(m[1].trim()); return true; }
+  return false;
+}
+// Moves to a new random song when the current one ends
+setInterval(() => {
+  if (!shuf.on || !shuf.cur || shuf.jumping || !ready || !playing || adActive) return;
+  const d = player.getVideoData ? player.getVideoData() : null;
+  if (!d || d.video_id !== shuf.cur.id) return;
+  if (shuf.cur.end != null && player.getCurrentTime() >= shuf.cur.end - 0.5) shuffleNext();
+}, 500);
 
 /* Settings page */
 function openSettings(){
